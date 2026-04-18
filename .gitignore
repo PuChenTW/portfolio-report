@@ -1,0 +1,13 @@
+.venv/
+.env
+*.env
+.DS_Store
+__pycache__
+*.pyc
+.pytest_cache/
+build
+*.egg-info
+docs/
+logs/
+portfolio.csv
+.mcp.json
