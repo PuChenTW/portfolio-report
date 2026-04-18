@@ -1,0 +1,15 @@
+ticker,name,shares,cost_price,currency,category
+2330.TW,台積電,20,782.50,TWD,台股
+2317.TW,鴻海,60,104.20,TWD,台股
+0050.TW,元大台灣50,150,171.30,TWD,台灣ETF
+00878.TW,國泰永續高股息,400,21.85,TWD,台灣ETF
+AAPL,Apple,12,185.40,USD,美股
+MSFT,Microsoft,8,402.75,USD,美股
+GOOGL,Alphabet,10,152.60,USD,美股
+NVDA,NVIDIA,6,874.20,USD,美股
+VT,Vanguard Total World Stock ETF,80,109.35,USD,美國ETF
+VOO,Vanguard S&P 500 ETF,15,438.90,USD,美國ETF
+BND,Vanguard Total Bond Market ETF,40,72.80,USD,債券ETF
+GLD,SPDR Gold Shares,5,214.60,USD,商品ETF
+BTC-USD,Bitcoin,0.085,61250,USD,加密貨幣
+ETH-USD,Ethereum,1.35,3150,USD,加密貨幣

@@ -1,0 +1,18 @@
+[project]
+name = "mcp-server"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "mcp[cli]>=1.27.0",
+    "portfolio-core",
+]
+
+[tool.uv.sources]
+portfolio-core = { workspace = true }
+
+[project.scripts]
+portfolio-mcp = "server:main"
+
+[tool.mcp]
+command = "uv"
+args = ["run", "python", "server.py"]
