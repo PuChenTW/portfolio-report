@@ -28,7 +28,7 @@ def main():
 
     # Phase 2
     print("Phase 2: Fetching news via Claude...")
-    news = run_claude_news(us_holdings, tw_holdings, crypto_holdings, totals)
+    news = run_claude_news(us_holdings, tw_holdings, crypto_holdings, totals, summary=data["summary"])
 
     tw_notes: dict = news.get("tw_notes", {})
     for h in tw_holdings:

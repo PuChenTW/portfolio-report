@@ -22,6 +22,11 @@ MOCK_PRICES = {
     "BTC-USD": 65000.0,
 }
 
+MOCK_PRICES_WITH_FX = {
+    **MOCK_PRICES,
+    "TWD=X": 32.0,  # 1 USD = 32 TWD
+}
+
 
 def make_mock_ticker(price):
     mock = MagicMock()
@@ -92,6 +97,63 @@ def test_failed_ticker_goes_to_errors(mock_tickers_cls, csv_path):
     result = compute_summary(csv_path)
     assert any(e["ticker"] == "2330.TW" for e in result["errors"])
     assert any(p["ticker"] == "VOO" for p in result["positions"])
+
+
+@patch("yfinance.Tickers")
+def test_summary_allocation_with_fx(mock_tickers_cls, csv_path):
+    # Portfolio: TWD=92000, USD stocks=2400+3250=5650
+    # fx_rate=32 → TWD in USD = 92000/32 = 2875
+    # global_total_usd = 2875 + 5650 = 8525
+    tickers_obj = MagicMock()
+    tickers_obj.tickers = {k: make_mock_ticker(v) for k, v in MOCK_PRICES_WITH_FX.items()}
+    mock_tickers_cls.return_value = tickers_obj
+
+    result = compute_summary(csv_path)
+
+    assert result["fx_rate"] == pytest.approx(32.0)
+    assert result["global_total_usd"] is not None
+    assert result["currency_pct"] is not None
+
+    # currency_pct must sum to 100
+    total_pct = sum(result["currency_pct"].values())
+    assert total_pct == pytest.approx(100.0, abs=0.1)
+
+    # Each position has pct_of_currency_total and pct_of_global_usd
+    for p in result["positions"]:
+        assert "pct_of_currency_total" in p
+        assert p["pct_of_currency_total"] >= 0.0
+        assert "pct_of_global_usd" in p
+        assert p["pct_of_global_usd"] is not None
+        assert p["pct_of_global_usd"] >= 0.0
+
+    # TWD position is the only TWD holding → 100% of TWD currency total
+    tsmc = next(p for p in result["positions"] if p["ticker"] == "2330.TW")
+    assert tsmc["pct_of_currency_total"] == pytest.approx(100.0)
+
+    # Each category has pct_of_currency_total
+    for bc in result["by_currency"].values():
+        for cat_data in bc["by_category"].values():
+            assert "pct_of_currency_total" in cat_data
+            assert cat_data["pct_of_currency_total"] >= 0.0
+
+
+@patch("yfinance.Tickers")
+def test_summary_allocation_no_fx_graceful(mock_tickers_cls, csv_path):
+    # TWD=X missing from prices → global fields should be None, no crash
+    tickers_obj = MagicMock()
+    tickers_obj.tickers = {k: make_mock_ticker(v) for k, v in MOCK_PRICES.items()}
+    mock_tickers_cls.return_value = tickers_obj
+
+    result = compute_summary(csv_path)
+
+    assert result["fx_rate"] is None
+    assert result["global_total_usd"] is None
+    assert result["currency_pct"] is None
+
+    # pct_of_currency_total still computed; pct_of_global_usd is None
+    for p in result["positions"]:
+        assert p["pct_of_currency_total"] >= 0.0
+        assert p["pct_of_global_usd"] is None
 
 
 def test_render_us_row_contains_ticker_and_tag():
