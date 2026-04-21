@@ -9,10 +9,12 @@ from portfolio.portfolio import compute_summary, _fetch_prices
 from portfolio.report import (
     USHolding, TWHolding, CryptoHolding,
     generate_daily_report_html,
+    format_telegram_messages,
     _render_us_row, _render_tw_row, _render_crypto_row,
     _render_macro_rows, _render_tip_rows,
+    _esc,
 )
-from portfolio.telegram import send_telegram_file
+from portfolio.telegram import send_telegram_file, send_telegram_messages
 
 MOCK_PRICES = {
     "2330.TW": 920.0,
@@ -275,6 +277,108 @@ def test_send_telegram_file_missing_chat_id(monkeypatch):
     result = send_telegram_file(html_content="<h1>test</h1>")
 
     assert result == "Error: TELEGRAM_CHAT_ID not set"
+
+
+def _sample_msgs() -> list[str]:
+    return format_telegram_messages(
+        today_date="2026 年 04 月 19 日（星期日）",
+        tw_total="NT$2,605,040",
+        tw_change="▲ +1.40% 今日",
+        tw_change_up=True,
+        us_total="$171,149",
+        us_change="▼ -0.45% 今日",
+        us_change_up=False,
+        crypto_total="$18,545",
+        crypto_change="▲ +2.10% 今日",
+        crypto_change_up=True,
+        us_holdings=[{
+            "ticker": "NVDA", "name": "Nvidia", "category": "TECH",
+            "price": "$875.00", "day_change": "+3.2%", "day_change_up": True,
+            "gain_loss": "+45.1%", "gain_loss_up": True,
+        }],
+        us_event="Nvidia Q1 法說超預期，上調全年展望。",
+        tw_holdings=[{
+            "ticker": "2330.TW", "name": "台積電",
+            "price": "NT$920", "day_change": "+1.5%", "day_change_up": True,
+            "note": "外資買超 12億",
+        }],
+        crypto_holdings=[{
+            "ticker": "BTC", "name": "Bitcoin",
+            "price": "$76,126", "day_change": "+2.1%", "day_change_up": True,
+            "quantity": "0.2286 顆",
+        }],
+        macro_rows=["Fed 維持利率不變，點陣圖暗示年內降息一次。"],
+        tip_rows=["NVDA 法說後短線過熱，可考慮分批獲利了結。"],
+    )
+
+
+def test_esc_escapes_special_chars():
+    assert _esc("1.2") == "1\\.2"
+    assert _esc("+1") == "\\+1"
+    assert _esc("-1") == "\\-1"
+    assert _esc("hello!") == "hello\\!"
+    assert _esc("a_b") == "a\\_b"
+
+
+def test_format_telegram_messages_returns_three_messages():
+    assert len(_sample_msgs()) == 3
+
+
+def test_format_telegram_messages_all_under_4096_chars():
+    for i, m in enumerate(_sample_msgs()):
+        assert len(m) <= 4096, f"Message {i + 1} exceeds 4096 chars: {len(m)}"
+
+
+def test_format_telegram_messages_content():
+    full = "\n".join(_sample_msgs())
+    assert "每日投資摘要" in full
+    assert "2026" in full
+    assert "NVDA" in full
+    assert "台積電" in full
+    assert "Bitcoin" in full
+    assert "Fed" in full
+    assert "NVDA 法說後" in full
+
+
+def test_format_telegram_messages_arrows():
+    msg1 = _sample_msgs()[0]
+    # tw_change_up=True → 🟢, us_change_up=False → 🔴
+    assert "🟢" in msg1
+    assert "🔴" in msg1
+
+
+def test_send_telegram_messages_success(monkeypatch):
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "fake-token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "123456")
+
+    with patch("urllib.request.urlopen", return_value=_FakeResponse(200)):
+        result = send_telegram_messages(["hello", "world"])
+
+    assert "✅" in result
+    assert "123456" in result
+
+
+def test_send_telegram_messages_missing_token(monkeypatch):
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "123456")
+    result = send_telegram_messages(["hello"])
+    assert result == "Error: TELEGRAM_BOT_TOKEN not set"
+
+
+def test_send_telegram_messages_api_error(monkeypatch):
+    import urllib.error
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "fake-token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "bad-id")
+
+    error = urllib.error.HTTPError(
+        url="", code=400, msg="Bad Request", hdrs=None, fp=None  # type: ignore
+    )
+    error.read = lambda n=-1: b"Bad Request"
+
+    with patch("urllib.request.urlopen", side_effect=error):
+        result = send_telegram_messages(["hello"])
+
+    assert "Error 400" in result
 
 
 def test_send_telegram_file_api_error(monkeypatch):

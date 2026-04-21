@@ -1,8 +1,8 @@
 import sys
 from datetime import datetime
 
-from portfolio.report import generate_daily_report_html
-from portfolio.telegram import send_telegram_file
+from portfolio.report import format_telegram_messages
+from portfolio.telegram import send_telegram_messages
 
 from pipeline.data import (
     TZ_TAIPEI,
@@ -40,8 +40,8 @@ def main():
     crypto_change_str, crypto_change_up = totals["crypto_change"]
 
     # Phase 3
-    print("Phase 3: Generating HTML report...")
-    html = generate_daily_report_html(
+    print("Phase 3: Formatting Telegram messages...")
+    messages = format_telegram_messages(
         today_date=_fmt_today(),
         tw_total=totals["tw_total"],
         tw_change=tw_change_str,
@@ -61,9 +61,7 @@ def main():
     )
 
     print("Phase 3: Sending via Telegram...")
-    result = send_telegram_file(
-        html, filename=f"daily_report_{datetime.now(TZ_TAIPEI).strftime('%Y%m%d')}.html"
-    )
+    result = send_telegram_messages(messages)
     print(result)
 
     if not result.startswith("✅"):

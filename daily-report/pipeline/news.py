@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import time
 from datetime import datetime
 from typing import cast
 
@@ -94,17 +95,28 @@ def run_claude_news(
         portfolio_json=json.dumps(portfolio_summary, ensure_ascii=False),
     )
 
-    try:
-        result = _make_news_agent(date_str).run_sync(prompt)
-        for msg in result.all_messages():
-            for part in msg.parts:
-                kind = getattr(part, "part_kind", None)
-                if kind == "tool-call":
-                    print(f"[search] {getattr(part, 'tool_name', '?')}: {getattr(part, 'args', '')}", file=sys.stderr)
-                elif kind == "tool-return":
-                    preview = str(getattr(part, "content", ""))[:200]
-                    print(f"[result] {getattr(part, 'tool_name', '?')}: {preview}", file=sys.stderr)
-        return cast(_NewsSummary, result.output).model_dump()
-    except Exception as e:
-        print(f"[warn] PydanticAI news agent failed: {e}", file=sys.stderr)
-        return _NEWS_DEFAULTS
+    _MAX_RETRIES = 5
+    _BASE_DELAY = 2
+
+    for attempt in range(_MAX_RETRIES):
+        try:
+            result = _make_news_agent(date_str).run_sync(prompt)
+            for msg in result.all_messages():
+                for part in msg.parts:
+                    kind = getattr(part, "part_kind", None)
+                    if kind == "tool-call":
+                        print(f"[search] {getattr(part, 'tool_name', '?')}: {getattr(part, 'args', '')}", file=sys.stderr)
+                    elif kind == "tool-return":
+                        preview = str(getattr(part, "content", ""))[:200]
+                        print(f"[result] {getattr(part, 'tool_name', '?')}: {preview}", file=sys.stderr)
+            return cast(_NewsSummary, result.output).model_dump()
+        except Exception as e:
+            if attempt < _MAX_RETRIES - 1:
+                delay = _BASE_DELAY * (2 ** attempt)
+                print(f"[warn] PydanticAI news agent failed (attempt {attempt + 1}/{_MAX_RETRIES}): {e}", file=sys.stderr)
+                print(f"[warn] Retrying in {delay}s...", file=sys.stderr)
+                time.sleep(delay)
+            else:
+                print(f"[warn] PydanticAI news agent failed after {_MAX_RETRIES} attempts: {e}", file=sys.stderr)
+
+    return _NEWS_DEFAULTS

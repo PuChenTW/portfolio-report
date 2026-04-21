@@ -13,8 +13,8 @@ Keep shared domain logic in `portfolio-core`. `mcp-server` should stay thin and 
 Core modules:
 
 - `portfolio-core/portfolio/portfolio.py`: CSV loading, batched price fetches, and portfolio summary calculation.
-- `portfolio-core/portfolio/report.py`: HTML report rendering and holding view models.
-- `portfolio-core/portfolio/telegram.py`: Telegram document delivery.
+- `portfolio-core/portfolio/report.py`: HTML report rendering, holding view models, and Telegram MarkdownV2 message formatting.
+- `portfolio-core/portfolio/telegram.py`: Telegram delivery — `send_telegram_file` (HTML attachment) and `send_telegram_messages` (inline MarkdownV2 messages).
 - `daily-report/pipeline/data.py`: portfolio fetch, holding transformation, and total calculation.
 - `daily-report/pipeline/news.py`: news summarization via PydanticAI and Tavily.
 - `daily-report/pipeline/run.py`: pipeline orchestration.

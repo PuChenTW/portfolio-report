@@ -256,6 +256,102 @@ DAILY_REPORT_TEMPLATE = """\
 </html>"""
 
 
+_MDV2_ESCAPE = str.maketrans({
+    "_": r"\_", "*": r"\*", "[": r"\[", "]": r"\]", "(": r"\(",
+    ")": r"\)", "~": r"\~", "`": r"\`", ">": r"\>", "#": r"\#",
+    "+": r"\+", "-": r"\-", "=": r"\=", "|": r"\|", "{": r"\{",
+    "}": r"\}", ".": r"\.", "!": r"\!",
+})
+
+
+def _esc(s: str) -> str:
+    return s.translate(_MDV2_ESCAPE)
+
+
+def _arrow(is_up: bool) -> str:
+    return "🟢" if is_up else "🔴"
+
+
+def format_telegram_messages(
+    today_date: str,
+    tw_total: str,
+    tw_change: str,
+    tw_change_up: bool,
+    us_total: str,
+    us_change: str,
+    us_change_up: bool,
+    crypto_total: str,
+    crypto_change: str,
+    crypto_change_up: bool,
+    us_holdings: list[USHolding],
+    us_event: str,
+    tw_holdings: list[TWHolding],
+    crypto_holdings: list[CryptoHolding],
+    macro_rows: list[str],
+    tip_rows: list[str],
+) -> list[str]:
+    """Format daily report as Telegram MarkdownV2 messages (inline, no attachment)."""
+    # Message 1: Header + Totals + Macro
+    msg1_lines = [
+        f"📊 *每日投資摘要*  {_esc(today_date)}",
+        "",
+        f"🇹🇼 台股  {_esc(tw_total)}  {_arrow(tw_change_up)} {_esc(tw_change)}",
+        f"🇺🇸 美股  {_esc(us_total)}  {_arrow(us_change_up)} {_esc(us_change)}",
+        f"₿  加密貨幣  {_esc(crypto_total)}  {_arrow(crypto_change_up)} {_esc(crypto_change)}",
+        "",
+        "🌍 *總體經濟*",
+    ]
+    for row in macro_rows:
+        msg1_lines.append(f"• {_esc(row)}")
+
+    # Message 2: US Holdings + TW Holdings
+    msg2_lines = ["🇺🇸 *美股市況*", "```"]
+    msg2_lines.append(f"{'標的':<16} {'最新價':>10} {'日漲跌':>8} {'持倉損益':>8}")
+    msg2_lines.append("─" * 46)
+    for h in us_holdings:
+        arrow = "▲" if h["day_change_up"] else "▼"
+        gl_arrow = "▲" if h["gain_loss_up"] else "▼"
+        label = f"{h['ticker']} {h['category']}"
+        msg2_lines.append(
+            f"{label:<16} {h['price']:>10} {arrow}{h['day_change']:>7} {gl_arrow}{h['gain_loss']:>7}"
+        )
+    msg2_lines.append("```")
+    msg2_lines.append(f"⚡ _{_esc(us_event)}_")
+    msg2_lines.append("")
+    msg2_lines.append("🇹🇼 *台股市況*")
+    msg2_lines.append("```")
+    msg2_lines.append(f"{'標的':<14} {'最新價':>10} {'日漲跌':>8}  備註")
+    msg2_lines.append("─" * 46)
+    for h in tw_holdings:
+        arrow = "▲" if h["day_change_up"] else "▼"
+        label = f"{h['ticker']} {h['name']}"[:14]
+        msg2_lines.append(
+            f"{label:<14} {h['price']:>10} {arrow}{h['day_change']:>7}  {h['note']}"
+        )
+    msg2_lines.append("```")
+
+    # Message 3: Crypto + Tips + Footer
+    msg3_lines = ["₿ *加密貨幣*", "```"]
+    msg3_lines.append(f"{'幣種':<14} {'最新價':>12} {'日漲跌':>8}  持有量")
+    msg3_lines.append("─" * 46)
+    for h in crypto_holdings:
+        arrow = "▲" if h["day_change_up"] else "▼"
+        label = f"{h['ticker']} {h['name']}"
+        msg3_lines.append(
+            f"{label:<14} {h['price']:>12} {arrow}{h['day_change']:>7}  {h['quantity']}"
+        )
+    msg3_lines.append("```")
+    msg3_lines.append("")
+    msg3_lines.append("💡 *今日重點提示*")
+    for i, tip in enumerate(tip_rows, 1):
+        msg3_lines.append(f"{_esc(str(i))}\\. {_esc(tip)}")
+    msg3_lines.append("")
+    msg3_lines.append("_此報告由 Claude AI 自動生成 · 資料來源：Yahoo Finance_")
+    msg3_lines.append("_⚠️ 僅供參考，不構成投資建議_")
+
+    return ["\n".join(msg1_lines), "\n".join(msg2_lines), "\n".join(msg3_lines)]
+
+
 def generate_daily_report_html(
     today_date: str,
     tw_total: str,
