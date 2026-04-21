@@ -1,4 +1,4 @@
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 
 class USHolding(TypedDict):
@@ -10,6 +10,7 @@ class USHolding(TypedDict):
     day_change_up: bool
     gain_loss: str  # pre-formatted, e.g. "+18.5%"
     gain_loss_up: bool
+    pct_of_currency: NotRequired[float]  # % of same-currency total, e.g. 12.3
 
 
 class TWHolding(TypedDict):
@@ -19,6 +20,7 @@ class TWHolding(TypedDict):
     day_change: str
     day_change_up: bool
     note: str  # free text, e.g. "外資買超 12億"
+    pct_of_currency: NotRequired[float]
 
 
 class CryptoHolding(TypedDict):
@@ -28,6 +30,7 @@ class CryptoHolding(TypedDict):
     day_change: str
     day_change_up: bool
     quantity: str  # e.g. "0.2286 顆"
+    pct_of_currency: NotRequired[float]
 
 
 _GREEN = "#48bb78"
@@ -304,41 +307,45 @@ def format_telegram_messages(
     for row in macro_rows:
         msg1_lines.append(f"• {_esc(row)}")
 
+    def _fmt_pct(h: USHolding | TWHolding | CryptoHolding) -> str:
+        pct = h.get("pct_of_currency")
+        return f"{pct:.1f}%" if pct is not None else "  —  "
+
     # Message 2: US Holdings + TW Holdings
     msg2_lines = ["🇺🇸 *美股市況*", "```"]
-    msg2_lines.append(f"{'標的':<16} {'最新價':>10} {'日漲跌':>8} {'持倉損益':>8}")
+    msg2_lines.append(f"{'標的':<14} {'最新價':>9} {'日漲跌':>7} {'損益':>6} {'佔比':>6}")
     msg2_lines.append("─" * 46)
     for h in us_holdings:
         arrow = "▲" if h["day_change_up"] else "▼"
         gl_arrow = "▲" if h["gain_loss_up"] else "▼"
-        label = f"{h['ticker']} {h['category']}"
+        label = f"{h['ticker']} {h['category']}"[:14]
         msg2_lines.append(
-            f"{label:<16} {h['price']:>10} {arrow}{h['day_change']:>7} {gl_arrow}{h['gain_loss']:>7}"
+            f"{label:<14} {h['price']:>9} {arrow}{h['day_change']:>6} {gl_arrow}{h['gain_loss']:>5} {_fmt_pct(h):>6}"
         )
     msg2_lines.append("```")
     msg2_lines.append(f"⚡ _{_esc(us_event)}_")
     msg2_lines.append("")
     msg2_lines.append("🇹🇼 *台股市況*")
     msg2_lines.append("```")
-    msg2_lines.append(f"{'標的':<14} {'最新價':>10} {'日漲跌':>8}  備註")
+    msg2_lines.append(f"{'標的':<12} {'最新價':>9} {'日漲跌':>7} {'佔比':>6}  備註")
     msg2_lines.append("─" * 46)
     for h in tw_holdings:
         arrow = "▲" if h["day_change_up"] else "▼"
-        label = f"{h['ticker']} {h['name']}"[:14]
+        label = f"{h['ticker']} {h['name']}"[:12]
         msg2_lines.append(
-            f"{label:<14} {h['price']:>10} {arrow}{h['day_change']:>7}  {h['note']}"
+            f"{label:<12} {h['price']:>9} {arrow}{h['day_change']:>6} {_fmt_pct(h):>6}  {h['note']}"
         )
     msg2_lines.append("```")
 
     # Message 3: Crypto + Tips + Footer
     msg3_lines = ["₿ *加密貨幣*", "```"]
-    msg3_lines.append(f"{'幣種':<14} {'最新價':>12} {'日漲跌':>8}  持有量")
+    msg3_lines.append(f"{'幣種':<12} {'最新價':>11} {'日漲跌':>7} {'佔比':>6}  持有量")
     msg3_lines.append("─" * 46)
     for h in crypto_holdings:
         arrow = "▲" if h["day_change_up"] else "▼"
-        label = f"{h['ticker']} {h['name']}"
+        label = f"{h['ticker']} {h['name']}"[:12]
         msg3_lines.append(
-            f"{label:<14} {h['price']:>12} {arrow}{h['day_change']:>7}  {h['quantity']}"
+            f"{label:<12} {h['price']:>11} {arrow}{h['day_change']:>6} {_fmt_pct(h):>6}  {h['quantity']}"
         )
     msg3_lines.append("```")
     msg3_lines.append("")

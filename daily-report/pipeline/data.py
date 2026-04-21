@@ -61,6 +61,8 @@ def build_holdings(
         gl_sign = "+" if gain_loss_up else ""
         gain_loss = f"{gl_sign}{gl_pct:.2f}%"
 
+        pct = p.get("pct_of_currency_total", 0.0)
+
         if p["currency"] == "TWD":
             tw_holdings.append(
                 TWHolding(
@@ -70,6 +72,7 @@ def build_holdings(
                     day_change=day_change,
                     day_change_up=day_change_up,
                     note="—",
+                    pct_of_currency=pct,
                 )
             )
         elif p["category"] == "加密貨幣":
@@ -81,6 +84,7 @@ def build_holdings(
                     day_change=day_change,
                     day_change_up=day_change_up,
                     quantity=f"{p['shares']:.4f} 顆",
+                    pct_of_currency=pct,
                 )
             )
         else:
@@ -96,6 +100,7 @@ def build_holdings(
                     day_change_up=day_change_up,
                     gain_loss=gain_loss,
                     gain_loss_up=gain_loss_up,
+                    pct_of_currency=pct,
                 )
             )
 
