@@ -13,3 +13,5 @@ BND,Vanguard Total Bond Market ETF,40,72.80,USD,債券ETF
 GLD,SPDR Gold Shares,5,214.60,USD,商品ETF
 BTC-USD,Bitcoin,0.085,61250,USD,加密貨幣
 ETH-USD,Ethereum,1.35,3150,USD,加密貨幣
+CASH_TWD,新台幣現金,1,50000,TWD,現金
+CASH_USD,美元現金,1,10000,USD,現金

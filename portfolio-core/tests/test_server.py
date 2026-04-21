@@ -457,3 +457,85 @@ def test_send_telegram_file_api_error(monkeypatch):
         result = send_telegram_file(html_content="<h1>test</h1>")
 
     assert "Error 400" in result
+
+
+# --- Cash position tests ---
+
+@pytest.fixture
+def csv_path_with_cash(tmp_path):
+    p = tmp_path / "portfolio.csv"
+    p.write_text(
+        "ticker,name,shares,cost_price,currency,category\n"
+        "2330.TW,台積電,100,580,TWD,台股\n"
+        "VOO,Vanguard S&P500,5,420,USD,美國ETF\n"
+        "CASH_TWD,新台幣現金,1,50000,TWD,現金\n"
+        "CASH_USD,美元現金,1,10000,USD,現金\n"
+    )
+    return str(p)
+
+
+@patch("yfinance.Tickers")
+def test_cash_position_is_marked_and_has_zero_gain_loss(mock_tickers_cls, csv_path_with_cash):
+    tickers_obj = MagicMock()
+    tickers_obj.tickers = {
+        "2330.TW": make_mock_ticker(920.0),
+        "VOO": make_mock_ticker(480.0),
+    }
+    mock_tickers_cls.return_value = tickers_obj
+
+    result = compute_summary(csv_path_with_cash)
+
+    cash_twd = next(p for p in result["positions"] if p["ticker"] == "CASH_TWD")
+    assert cash_twd["is_cash"] is True
+    assert cash_twd["current_value"] == pytest.approx(50000.0)
+    assert cash_twd["cost_value"] == pytest.approx(50000.0)
+    assert cash_twd["gain_loss"] == pytest.approx(0.0)
+    assert cash_twd["gain_loss_pct"] == pytest.approx(0.0)
+
+    cash_usd = next(p for p in result["positions"] if p["ticker"] == "CASH_USD")
+    assert cash_usd["is_cash"] is True
+    assert cash_usd["current_value"] == pytest.approx(10000.0)
+
+
+@patch("yfinance.Tickers")
+def test_cash_not_sent_to_yfinance(mock_tickers_cls, csv_path_with_cash):
+    tickers_obj = MagicMock()
+    tickers_obj.tickers = {
+        "2330.TW": make_mock_ticker(920.0),
+        "VOO": make_mock_ticker(480.0),
+    }
+    mock_tickers_cls.return_value = tickers_obj
+
+    compute_summary(csv_path_with_cash)
+
+    # yfinance.Tickers should only be called with market tickers + TWD=X, not CASH_ tickers
+    call_args = mock_tickers_cls.call_args[0][0]
+    assert "CASH_TWD" not in call_args
+    assert "CASH_USD" not in call_args
+
+
+@patch("yfinance.Tickers")
+def test_cash_included_in_pct_of_currency_total(mock_tickers_cls, csv_path_with_cash):
+    tickers_obj = MagicMock()
+    tickers_obj.tickers = {
+        "2330.TW": make_mock_ticker(920.0),
+        "VOO": make_mock_ticker(480.0),
+    }
+    mock_tickers_cls.return_value = tickers_obj
+
+    result = compute_summary(csv_path_with_cash)
+
+    # TWD total: 92000 (TSMC) + 50000 (cash) = 142000
+    # TSMC pct = 92000/142000 ≈ 64.79%, cash pct = 50000/142000 ≈ 35.21%
+    tsmc = next(p for p in result["positions"] if p["ticker"] == "2330.TW")
+    cash_twd = next(p for p in result["positions"] if p["ticker"] == "CASH_TWD")
+
+    assert tsmc["pct_of_currency_total"] == pytest.approx(64.79, rel=0.01)
+    assert cash_twd["pct_of_currency_total"] == pytest.approx(35.21, rel=0.01)
+
+    # Percentages must sum to 100 within each currency
+    twd_positions = [p for p in result["positions"] if p["currency"] == "TWD"]
+    assert sum(p["pct_of_currency_total"] for p in twd_positions) == pytest.approx(100.0, abs=0.1)
+
+    usd_positions = [p for p in result["positions"] if p["currency"] == "USD"]
+    assert sum(p["pct_of_currency_total"] for p in usd_positions) == pytest.approx(100.0, abs=0.1)

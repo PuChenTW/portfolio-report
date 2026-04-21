@@ -39,14 +39,41 @@ def fetch_prev_closes(tickers: list[str]) -> dict[str, float]:
 
 def compute_summary(csv_path: str) -> dict[str, Any]:
     rows = _load_csv(csv_path)
-    tickers = [r["ticker"] for r in rows]
-    prices = _fetch_prices(tickers + ["TWD=X"])
+    market_rows = [r for r in rows if not r["ticker"].startswith("CASH_")]
+    cash_rows = [r for r in rows if r["ticker"].startswith("CASH_")]
+
+    market_tickers = [r["ticker"] for r in market_rows]
+    prices = _fetch_prices(market_tickers + ["TWD=X"])
     fx_rate: float | None = prices.pop("TWD=X", None)
 
     positions = []
     errors = []
 
-    for row in rows:
+    for row in cash_rows:
+        ticker = row["ticker"]
+        shares = float(row["shares"])
+        cost_price = float(row["cost_price"])
+        face_value = round(shares * cost_price, 2)
+        positions.append(
+            {
+                "ticker": ticker,
+                "name": row["name"],
+                "category": row["category"],
+                "shares": shares,
+                "cost_price": cost_price,
+                "current_price": cost_price,
+                "currency": row["currency"],
+                "cost_value": face_value,
+                "current_value": face_value,
+                "gain_loss": 0.0,
+                "gain_loss_pct": 0.0,
+                "is_cash": True,
+                "pct_of_currency_total": 0.0,
+                "pct_of_global_usd": None,
+            }
+        )
+
+    for row in market_rows:
         ticker = row["ticker"]
         shares = float(row["shares"])
         cost_price = float(row["cost_price"])
@@ -75,6 +102,7 @@ def compute_summary(csv_path: str) -> dict[str, Any]:
                 "current_value": round(current_value, 2),
                 "gain_loss": round(gain_loss, 2),
                 "gain_loss_pct": round(gain_loss_pct, 2),
+                "is_cash": False,
                 # allocation fields filled in after totals are known
                 "pct_of_currency_total": 0.0,
                 "pct_of_global_usd": None,

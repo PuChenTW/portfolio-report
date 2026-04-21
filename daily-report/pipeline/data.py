@@ -30,7 +30,7 @@ def _fmt_twd(value: float) -> str:
 def fetch_portfolio() -> dict:
     """Fetch summary + previous closes in two batch calls."""
     summary = compute_summary(CSV_PATH)
-    tickers = [p["ticker"] for p in summary["positions"]]
+    tickers = [p["ticker"] for p in summary["positions"] if not p.get("is_cash")]
     prev_closes = fetch_prev_closes(tickers)
     return {"summary": summary, "prev_closes": prev_closes}
 
@@ -44,12 +44,44 @@ def build_holdings(
     us_holdings: list[USHolding] = []
     tw_holdings: list[TWHolding] = []
     crypto_holdings: list[CryptoHolding] = []
+    cash_tw: list[TWHolding] = []
+    cash_us: list[USHolding] = []
 
     for p in positions:
         ticker = p["ticker"]
         current = p["current_price"]
-        prev = prev_closes.get(ticker)
+        pct = p.get("pct_of_currency_total", 0.0)
 
+        if p.get("is_cash"):
+            if p["currency"] == "TWD":
+                cash_tw.append(
+                    TWHolding(
+                        ticker=ticker,
+                        name=p["name"],
+                        price=_fmt_twd(p["current_value"]),
+                        day_change="—",
+                        day_change_up=False,
+                        note="現金",
+                        pct_of_currency=pct,
+                    )
+                )
+            else:
+                cash_us.append(
+                    USHolding(
+                        ticker=ticker,
+                        name=p["name"],
+                        category="CASH",
+                        price=_fmt_usd(p["current_value"]),
+                        day_change="—",
+                        day_change_up=False,
+                        gain_loss="—",
+                        gain_loss_up=False,
+                        pct_of_currency=pct,
+                    )
+                )
+            continue
+
+        prev = prev_closes.get(ticker)
         if prev and prev > 0:
             day_pct = (current - prev) / prev * 100
             day_change, day_change_up = _fmt_change(day_pct)
@@ -60,8 +92,6 @@ def build_holdings(
         gain_loss_up = gl_pct >= 0
         gl_sign = "+" if gain_loss_up else ""
         gain_loss = f"{gl_sign}{gl_pct:.2f}%"
-
-        pct = p.get("pct_of_currency_total", 0.0)
 
         if p["currency"] == "TWD":
             tw_holdings.append(
@@ -103,6 +133,10 @@ def build_holdings(
                     pct_of_currency=pct,
                 )
             )
+
+    # Cash positions appear at the end of their respective sections
+    tw_holdings.extend(cash_tw)
+    us_holdings.extend(cash_us)
 
     return us_holdings, tw_holdings, crypto_holdings
 

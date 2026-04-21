@@ -90,12 +90,14 @@ def _build_portfolio_context(
     categories = []
     for cur, bc in by_currency.items():
         for cat, v in bc.get("by_category", {}).items():
-            categories.append({
-                "name": cat,
-                "currency": cur,
-                "pct_of_currency": v.get("pct_of_currency_total", None),
-                "pct_global": None,  # category-level global pct not computed; position-level used
-            })
+            categories.append(
+                {
+                    "name": cat,
+                    "currency": cur,
+                    "pct_of_currency": v.get("pct_of_currency_total", None),
+                    "pct_global": None,  # category-level global pct not computed; position-level used
+                }
+            )
 
     def _pos_entry(ticker: str, extra: dict) -> dict:
         p = positions_by_ticker.get(ticker, {})
@@ -114,9 +116,30 @@ def _build_portfolio_context(
         },
         "categories": categories,
         "positions": (
-            [_pos_entry(h["ticker"], {"gain_loss": h["gain_loss"]}) for h in us_holdings]
-            + [_pos_entry(h["ticker"], {"gain_loss": positions_by_ticker.get(h["ticker"], {}).get("gain_loss_pct", None)}) for h in tw_holdings]
-            + [_pos_entry(h["ticker"] + "-USD" if h["ticker"] + "-USD" in positions_by_ticker else h["ticker"], {"quantity": h["quantity"]}) for h in crypto_holdings]
+            [
+                _pos_entry(h["ticker"], {"gain_loss": h["gain_loss"]})
+                for h in us_holdings
+            ]
+            + [
+                _pos_entry(
+                    h["ticker"],
+                    {
+                        "gain_loss": positions_by_ticker.get(h["ticker"], {}).get(
+                            "gain_loss_pct", None
+                        )
+                    },
+                )
+                for h in tw_holdings
+            ]
+            + [
+                _pos_entry(
+                    h["ticker"] + "-USD"
+                    if h["ticker"] + "-USD" in positions_by_ticker
+                    else h["ticker"],
+                    {"quantity": h["quantity"]},
+                )
+                for h in crypto_holdings
+            ]
         ),
     }
 
@@ -139,11 +162,13 @@ def run_claude_news(
     else:
         portfolio_summary = {
             "美股": [
-                {"ticker": h["ticker"], "gain_loss": h["gain_loss"]} for h in us_holdings
+                {"ticker": h["ticker"], "gain_loss": h["gain_loss"]}
+                for h in us_holdings
             ],
             "台股": [{"ticker": h["ticker"]} for h in tw_holdings],
             "加密貨幣": [
-                {"ticker": h["ticker"], "quantity": h["quantity"]} for h in crypto_holdings
+                {"ticker": h["ticker"], "quantity": h["quantity"]}
+                for h in crypto_holdings
             ],
         }
 
@@ -163,18 +188,30 @@ def run_claude_news(
                 for part in msg.parts:
                     kind = getattr(part, "part_kind", None)
                     if kind == "tool-call":
-                        print(f"[search] {getattr(part, 'tool_name', '?')}: {getattr(part, 'args', '')}", file=sys.stderr)
+                        print(
+                            f"[search] {getattr(part, 'tool_name', '?')}: {getattr(part, 'args', '')}",
+                            file=sys.stderr,
+                        )
                     elif kind == "tool-return":
                         preview = str(getattr(part, "content", ""))[:200]
-                        print(f"[result] {getattr(part, 'tool_name', '?')}: {preview}", file=sys.stderr)
+                        print(
+                            f"[result] {getattr(part, 'tool_name', '?')}: {preview}",
+                            file=sys.stderr,
+                        )
             return cast(_NewsSummary, result.output).model_dump()
         except Exception as e:
             if attempt < _MAX_RETRIES - 1:
-                delay = _BASE_DELAY * (2 ** attempt)
-                print(f"[warn] PydanticAI news agent failed (attempt {attempt + 1}/{_MAX_RETRIES}): {e}", file=sys.stderr)
+                delay = _BASE_DELAY * (2**attempt)
+                print(
+                    f"[warn] PydanticAI news agent failed (attempt {attempt + 1}/{_MAX_RETRIES}): {e}",
+                    file=sys.stderr,
+                )
                 print(f"[warn] Retrying in {delay}s...", file=sys.stderr)
                 time.sleep(delay)
             else:
-                print(f"[warn] PydanticAI news agent failed after {_MAX_RETRIES} attempts: {e}", file=sys.stderr)
+                print(
+                    f"[warn] PydanticAI news agent failed after {_MAX_RETRIES} attempts: {e}",
+                    file=sys.stderr,
+                )
 
     return _NEWS_DEFAULTS
