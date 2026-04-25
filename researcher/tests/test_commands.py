@@ -1,5 +1,4 @@
 import pytest
-from pathlib import Path
 from researcher.handlers.commands import handle_watchlist, handle_alert, handle_holdings, handle_status
 
 
@@ -45,6 +44,24 @@ def test_alert_set_below(alerts_path):
 def test_alert_show(alerts_path):
     reply = handle_alert(["show"], alerts_path=alerts_path)
     assert "stop_loss_pct" in reply or "-15" in reply or "0.15" in reply
+
+
+def test_holdings_update(tmp_path):
+    p = tmp_path / "portfolio.csv"
+    p.write_text("ticker,name,shares,cost_price,currency,category\nAAPL,Apple,10,150.0,USD,美股\n")
+    reply = handle_holdings(["update", "AAPL", "20", "160.0"], portfolio_path=str(p))
+    assert "AAPL" in reply
+    assert "20" in reply
+    content = p.read_text()
+    assert "20.0" in content
+    assert "160.0" in content
+
+
+def test_holdings_ticker_not_found(tmp_path):
+    p = tmp_path / "portfolio.csv"
+    p.write_text("ticker,name,shares,cost_price,currency,category\nAAPL,Apple,10,150.0,USD,美股\n")
+    reply = handle_holdings(["update", "NVDA", "5", "100.0"], portfolio_path=str(p))
+    assert "not found" in reply.lower()
 
 
 def test_status_returns_string():
