@@ -37,7 +37,7 @@ async def handle_chat(message: str) -> str:
     )
 
     agent = Agent(
-        "google-gla:gemini-2.0-flash",
+        "google-gla:gemini-3-flash-preview",
         tools=[tavily_search_tool(os.environ["TAVILY_API_KEY"])],
         output_type=_ChatIntent,
         system_prompt=f"date={date_str}",
@@ -51,7 +51,7 @@ async def handle_chat(message: str) -> str:
             break
         except Exception as e:
             if attempt < 2:
-                await asyncio.sleep(2 ** attempt)
+                await asyncio.sleep(2**attempt)
             else:
                 print(f"[warn] chat intent failed: {e}", file=sys.stderr)
                 return "抱歉，目前無法處理您的訊息，請稍後再試。"

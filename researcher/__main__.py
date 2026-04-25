@@ -24,8 +24,10 @@ async def main() -> None:
 
     async with app:
         await app.initialize()
+        from researcher.bot import _COMMANDS
+        await app.bot.set_my_commands(_COMMANDS)
         await app.start()
-        await app.updater.start_polling()
+        await app.updater.start_polling()  # type: ignore
         print("Bot polling started. Press Ctrl+C to stop.")
         stop_event = asyncio.Event()
         loop = asyncio.get_running_loop()
@@ -34,7 +36,7 @@ async def main() -> None:
         try:
             await stop_event.wait()
         finally:
-            await app.updater.stop()
+            await app.updater.stop()  # type: ignore
             await app.stop()
             scheduler.shutdown()
 
