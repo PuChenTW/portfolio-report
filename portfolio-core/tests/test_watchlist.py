@@ -1,6 +1,4 @@
-import csv
 import pytest
-from pathlib import Path
 from portfolio.watchlist import WatchlistEntry, load_watchlist, add_ticker, remove_ticker
 
 

@@ -16,11 +16,12 @@ def append_entry(path: str, content: str) -> None:
 
 
 def last_n_entries(path: str, n: int) -> str:
+    if n <= 0:
+        return ""
     content = read_file(path)
     if not content:
         return ""
-    # Sections are delimited by lines starting with "## "
+    # Sections delimited by "\n## " — section bodies must not contain lines starting with "## "
     parts = content.split("\n## ")
-    # Re-attach the delimiter (except the first section which already has it)
     sections = [parts[0]] + ["## " + p for p in parts[1:]]
     return "\n".join(sections[-n:])

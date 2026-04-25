@@ -1,6 +1,5 @@
 import pytest
-from pathlib import Path
-from portfolio.alerts import AlertRules, PriceAlert, load_alerts, check_positions
+from portfolio.alerts import load_alerts, check_positions
 
 
 @pytest.fixture
