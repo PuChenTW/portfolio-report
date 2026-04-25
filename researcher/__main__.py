@@ -1,4 +1,5 @@
 import asyncio
+import signal
 from datetime import datetime
 
 from portfolio.portfolio import TZ_TAIPEI
@@ -27,10 +28,11 @@ async def main() -> None:
         await app.updater.start_polling()
         print("Bot polling started. Press Ctrl+C to stop.")
         stop_event = asyncio.Event()
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, stop_event.set)
         try:
             await stop_event.wait()
-        except (KeyboardInterrupt, SystemExit):
-            pass
         finally:
             await app.updater.stop()
             await app.stop()

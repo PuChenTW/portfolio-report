@@ -6,7 +6,6 @@ RUN pip install uv
 
 COPY pyproject.toml uv.lock ./
 COPY portfolio-core/ ./portfolio-core/
-COPY mcp-server/ ./mcp-server/
 COPY daily-report/ ./daily-report/
 COPY researcher/ ./researcher/
 

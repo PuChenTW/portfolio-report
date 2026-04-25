@@ -1,9 +1,14 @@
 import asyncio
+import re
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from portfolio.telegram import send_telegram_messages
+
+
+def _esc(text: str) -> str:
+    return re.sub(r'([_*\[\]()~`>#+=|{}.!\-])', r'\\\1', text)
 
 import researcher.workflows.premarket as premarket
 import researcher.workflows.midday as midday
@@ -16,14 +21,14 @@ _TZ = "Asia/Taipei"
 def _wrap(fn, *args):
     """Wrap a sync workflow function for async scheduler execution."""
     async def job():
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         try:
             await loop.run_in_executor(None, fn, *args)
         except Exception as e:
-            msg = f"❌ Workflow {fn.__name__}({', '.join(str(a) for a in args)}) failed: {e}"
-            print(msg)
+            plain = f"Workflow {fn.__name__}({', '.join(str(a) for a in args)}) failed: {e}"
+            print(f"❌ {plain}")
             try:
-                send_telegram_messages([msg])
+                send_telegram_messages([f"❌ {_esc(plain)}"])
             except Exception:
                 pass
     return job
