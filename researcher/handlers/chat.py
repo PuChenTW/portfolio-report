@@ -43,6 +43,7 @@ async def handle_chat(message: str) -> str:
         system_prompt=f"date={date_str}",
     )
 
+    intent: _ChatIntent | None = None
     for attempt in range(3):
         try:
             result = await agent.run(intent_prompt)
@@ -55,6 +56,8 @@ async def handle_chat(message: str) -> str:
                 print(f"[warn] chat intent failed: {e}", file=sys.stderr)
                 return "抱歉，目前無法處理您的訊息，請稍後再試。"
 
+    if intent is None:
+        return "抱歉，目前無法處理您的訊息，請稍後再試。"
     if intent.kind == "command" and intent.command:
         return f"已識別為指令：`{intent.command}`\n請直接輸入此指令執行。"
     return intent.answer or "抱歉，我無法理解您的訊息。"
