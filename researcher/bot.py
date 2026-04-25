@@ -39,7 +39,7 @@ async def _route(text: str) -> str:
         return handle_status()
     if cmd == "research":
         from researcher.workflows import premarket
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         market = args[0].upper() if args else "US"
         await loop.run_in_executor(None, premarket.run, market)
         return f"✅ Research triggered for {market}."

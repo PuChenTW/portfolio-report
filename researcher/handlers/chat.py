@@ -1,5 +1,5 @@
+import asyncio
 import os
-import time
 import sys
 from datetime import datetime
 
@@ -51,7 +51,7 @@ async def handle_chat(message: str) -> str:
             break
         except Exception as e:
             if attempt < 2:
-                time.sleep(2 ** attempt)
+                await asyncio.sleep(2 ** attempt)
             else:
                 print(f"[warn] chat intent failed: {e}", file=sys.stderr)
                 return "抱歉，目前無法處理您的訊息，請稍後再試。"
