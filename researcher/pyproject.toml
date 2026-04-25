@@ -4,7 +4,6 @@ version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = [
     "portfolio-core",
-    "daily-report",
     "apscheduler>=3.10",
     "python-telegram-bot>=21.0",
     "pydantic-ai>=0.4.0",
@@ -17,7 +16,6 @@ include = ["researcher*"]
 
 [tool.uv.sources]
 portfolio-core = { workspace = true }
-daily-report = { workspace = true }
 
 [dependency-groups]
 dev = ["pytest>=9.0.3", "pytest-asyncio>=0.23"]

@@ -6,7 +6,6 @@ RUN pip install uv
 
 COPY pyproject.toml uv.lock ./
 COPY portfolio-core/ ./portfolio-core/
-COPY daily-report/ ./daily-report/
 COPY researcher/ ./researcher/
 
 RUN uv sync --package researcher

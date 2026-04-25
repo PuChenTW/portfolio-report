@@ -2,15 +2,13 @@ import os
 import sys
 from datetime import datetime
 
-from portfolio.portfolio import TZ_TAIPEI
 from portfolio.telegram import send_telegram_messages
 from portfolio.report import format_telegram_messages
 
-# daily-report package exposes its modules as `pipeline.*`
-from pipeline.data import (  # type: ignore[import]
-    _fmt_today, fetch_portfolio, build_holdings, build_totals,
+from researcher.pipeline.data import (
+    TZ_TAIPEI, _fmt_today, fetch_portfolio, build_holdings, build_totals,
 )
-from pipeline.news import _NEWS_DEFAULTS, run_claude_news  # type: ignore[import]
+from researcher.pipeline.news import _NEWS_DEFAULTS, run_claude_news
 
 from researcher.memory.io import append_entry
 

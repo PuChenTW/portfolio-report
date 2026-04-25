@@ -10,7 +10,7 @@ from pydantic_ai import Agent
 from pydantic_ai.common_tools.tavily import tavily_search_tool
 
 from portfolio.report import USHolding, TWHolding, CryptoHolding
-from pipeline.data import TZ_TAIPEI, _fmt_today
+from researcher.pipeline.data import TZ_TAIPEI, _fmt_today
 
 _NEWS_DEFAULTS = {
     "macro_rows": ["今日總體經濟數據暫無法取得。"],

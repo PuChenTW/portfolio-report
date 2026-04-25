@@ -6,29 +6,33 @@ This repository is a `uv` workspace with three Python packages:
 
 - `portfolio-core/`: shared portfolio logic in `portfolio/`, plus tests in `portfolio-core/tests/`.
 - `mcp-server/`: MCP server entry point in `server.py` and sample data in `portfolio.csv`.
-- `daily-report/`: daily report pipeline, with orchestration in `pipeline/`, a thin entry point in `daily_report_pipeline.py`, and cron-friendly execution in `run_daily_report.sh`.
+- `researcher/`: Telegram bot and scheduled research agent, with pipeline logic in `researcher/pipeline/`, workflows in `researcher/workflows/`, memory persistence in `researcher/memory/`, and command handlers in `researcher/handlers/`.
 
-Keep shared domain logic in `portfolio-core`. `mcp-server` should stay thin and expose tools only; `daily-report` should orchestrate reporting and delivery.
+Keep shared domain logic in `portfolio-core`. `mcp-server` should stay thin and expose tools only. `researcher` owns the pipeline, research, scheduling, and delivery.
 
 Core modules:
 
 - `portfolio-core/portfolio/portfolio.py`: CSV loading, batched price fetches, and portfolio summary calculation.
 - `portfolio-core/portfolio/report.py`: HTML report rendering, holding view models, and Telegram MarkdownV2 message formatting.
 - `portfolio-core/portfolio/telegram.py`: Telegram delivery — `send_telegram_file` (HTML attachment) and `send_telegram_messages` (inline MarkdownV2 messages).
-- `daily-report/pipeline/data.py`: portfolio fetch, holding transformation, and total calculation.
-- `daily-report/pipeline/news.py`: news summarization via PydanticAI and Tavily.
-- `daily-report/pipeline/run.py`: pipeline orchestration.
+- `researcher/pipeline/data.py`: portfolio fetch, holding transformation, and total calculation.
+- `researcher/pipeline/news.py`: news summarization via PydanticAI and Tavily.
+- `researcher/workflows/daily_summary.py`: pipeline orchestration — runs data + news + format + send for TW or US market close.
+- `researcher/workflows/premarket.py`: pre-market research and alert delivery.
+- `researcher/workflows/midday.py`: US midday price alert and thesis check.
+- `researcher/workflows/weekly_review.py`: weekly portfolio reflection.
+- `researcher/memory/io.py`: read/append/query markdown memory files.
 
 ## Build, Test, and Development Commands
 
 Run commands from the repo root unless noted otherwise:
 
 - `uv sync`: install workspace dependencies into `.venv`.
-- `uv run --package portfolio-core pytest portfolio-core/tests/ -v`: run the current test suite.
+- `uv run --package portfolio-core pytest portfolio-core/tests/ -v`: run the portfolio-core test suite.
+- `uv run --package researcher pytest researcher/tests/ -v`: run the researcher test suite.
 - `uv run --package mcp-server python mcp-server/server.py`: start the MCP server over stdio.
 - `cd mcp-server && uv run mcp dev server.py`: open the MCP inspector for local tool testing.
-- `cd daily-report && uv run python daily_report_pipeline.py`: run the daily report manually.
-- `./daily-report/run_daily_report.sh`: run the cron-oriented wrapper with env loading and log output.
+- `uv run --package researcher python -m researcher`: start the Telegram bot and scheduler.
 - `uv run pyright`: run static type checking using `pyrightconfig.json`.
 
 ## Coding Style & Naming Conventions
@@ -44,7 +48,7 @@ Design constraints:
 
 ## Testing Guidelines
 
-Tests use `pytest` and currently live under `portfolio-core/tests/` as `test_*.py`. Prefer fast, deterministic tests with mocks for network calls such as `yfinance` and Telegram delivery. Add or update tests alongside behavior changes in `portfolio-core`; for `mcp-server` and `daily-report`, cover core logic in shared modules whenever possible.
+Tests use `pytest`. `portfolio-core/tests/` covers shared portfolio logic; `researcher/tests/` covers pipeline and workflow logic. Prefer fast, deterministic tests with mocks for network calls such as `yfinance` and Telegram delivery. Add or update tests alongside behavior changes — shared logic in `portfolio-core`, pipeline/research logic in `researcher`.
 
 ## Commit & Pull Request Guidelines
 

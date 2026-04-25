@@ -1,2 +1,2 @@
 [tool.uv.workspace]
-members = ["portfolio-core", "mcp-server", "daily-report", "researcher"]
+members = ["portfolio-core", "mcp-server", "researcher"]
