@@ -10,7 +10,7 @@ _WATCHLIST_PATH = os.environ.get("WATCHLIST_CSV_PATH", "./watchlist.csv")
 _ALERTS_PATH = os.environ.get("PRICE_ALERTS_PATH", "./price-alerts.yml")
 
 
-async def _on_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def _on_message(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message or not update.message.text:
         return
     text = update.message.text.strip()
