@@ -1,0 +1,15 @@
+services:
+  researcher:
+    build: .
+    restart: always
+    env_file: .env
+    volumes:
+      - ./memory:/app/memory
+      - ./watchlist.csv:/app/watchlist.csv
+      - ./price-alerts.yml:/app/price-alerts.yml
+      - ./portfolio.csv:/app/portfolio.csv
+    environment:
+      - RESEARCHER_MEMORY_PATH=/app/memory
+      - WATCHLIST_CSV_PATH=/app/watchlist.csv
+      - PRICE_ALERTS_PATH=/app/price-alerts.yml
+      - PORTFOLIO_CSV_PATH=/app/portfolio.csv
