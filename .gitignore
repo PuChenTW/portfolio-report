@@ -12,5 +12,6 @@ logs/
 portfolio.csv
 .mcp.json
 memory/
+!researcher/memory/
 watchlist.csv
 price-alerts.yml
