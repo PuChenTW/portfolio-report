@@ -87,14 +87,47 @@ uv run --package researcher python -m researcher
 
 ## Scheduled Workflows
 
-| Workflow | Schedule | Description |
-|----------|----------|-------------|
-| TW Premarket | Weekdays 08:30 Asia/Taipei | TW market research and alerts |
-| US Premarket | Weekdays 08:30 America/New_York | US market research and alerts |
-| TW Daily Summary | Weekdays 13:35 Asia/Taipei | Full portfolio P&L + news report |
-| US Midday | Weekdays 13:00 America/New_York | US price alerts and thesis check |
-| US Daily Summary | Weekdays 16:00 America/New_York | Full portfolio P&L + news report |
-| Weekly Review | Saturdays 10:00 Asia/Taipei | Weekly portfolio reflection |
+| Workflow | Schedule | What it does | Sends Telegram? |
+|----------|----------|--------------|-----------------|
+| TW Premarket | Weekdays 08:30 Asia/Taipei | Reads investment strategy + last 3 research log entries; searches macro indicators and per-ticker news via Tavily; classifies alert tickers | Only if alert tickers found |
+| US Premarket | Weekdays 08:30 America/New_York | Same as TW Premarket, filtered to USD positions and US watchlist | Only if alert tickers found |
+| TW Daily Summary | Weekdays 13:35 Asia/Taipei | Batch-fetches current prices and day P&L; runs AI news pipeline (macro, Taiwan equities, crypto); formats and sends full portfolio report | Always |
+| US Midday | Weekdays 13:00 America/New_York | Loads `price-alerts.yml`; checks threshold breaches and >2% intraday moves; runs per-ticker AI thesis check if triggered | Only if price alert or thesis broken |
+| US Daily Summary | Weekdays 16:00 America/New_York | Same as TW Daily Summary, filtered to US and crypto positions | Always |
+| Weekly Review | Saturdays 10:00 Asia/Taipei | Reads last 10 entries from portfolio + research logs; fetches SPY and 0050.TW benchmark returns; generates weekly reflection via AI | Always |
+
+## Telegram Bot
+
+### Commands
+
+| Command | Subcommands | Description |
+|---------|-------------|-------------|
+| `/status` | — | Confirms the agent is running |
+| `/watchlist` | `list` / `add TICKER [note]` / `remove TICKER` | Manage watchlist entries |
+| `/alert` | `show [TICKER]` / `set TICKER above=X` / `set TICKER below=X` | View or configure price alert thresholds |
+| `/holdings` | `update TICKER SHARES COST` | Update a position in `portfolio.csv` |
+| `/research` | `[TW\|US]` (default US) | Trigger a premarket research run on demand |
+
+### Free-form Chat
+
+Any non-command message is handled by a chat agent. It receives today's date and the last 2 entries from `RESEARCH-LOG.md` as context — it does **not** have access to live portfolio data or prices. Intent is classified into three paths:
+
+- **command** — suggests the matching slash command (e.g. `/watchlist add AAPL`)
+- **research** — searches news via Tavily and returns a 3–5 sentence answer
+- **other** — polite conversational reply
+
+## Memory System
+
+The researcher accumulates context across runs using four append-only markdown files under `RESEARCHER_MEMORY_PATH` (default `./memory`):
+
+| File | Written by | Read by |
+|------|-----------|---------|
+| `INVESTMENT-STRATEGY.md` | You (manually) | Premarket — grounds research in your stated strategy |
+| `RESEARCH-LOG.md` | Premarket, Midday, Weekly Review | All agents — last 2–3 entries for rolling context |
+| `PORTFOLIO-LOG.md` | Daily Summary | Weekly Review — last 10 entries for performance context |
+| `WEEKLY-REVIEW.md` | Weekly Review | — |
+
+All research workflows use PydanticAI with Tavily for live news search and exponential-backoff retry on failure.
 
 ## Tech Stack
 

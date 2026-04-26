@@ -87,14 +87,47 @@ uv run --package researcher python -m researcher
 
 ## 排程工作流程
 
-| 工作流程 | 排程 | 說明 |
-|----------|------|------|
-| 台股盤前 | 平日 08:30 Asia/Taipei | 台股市場研究與提醒 |
-| 美股盤前 | 平日 08:30 America/New_York | 美股市場研究與提醒 |
-| 台股每日摘要 | 平日 13:35 Asia/Taipei | 完整投資組合損益 + 新聞報告 |
-| 美股盤中 | 平日 13:00 America/New_York | 美股價格提醒與論點確認 |
-| 美股每日摘要 | 平日 16:00 America/New_York | 完整投資組合損益 + 新聞報告 |
-| 每週回顧 | 週六 10:00 Asia/Taipei | 每週投資組合反思 |
+| 工作流程 | 排程 | 執行內容 | 發送 Telegram？ |
+|----------|------|----------|-----------------|
+| 台股盤前 | 平日 08:30 Asia/Taipei | 讀取投資策略 + 最近 3 筆研究記錄；透過 Tavily 搜尋總經指標與個股新聞；分類需警示的標的 | 僅在發現警示標的時 |
+| 美股盤前 | 平日 08:30 America/New_York | 同台股盤前，篩選 USD 部位與美股觀察清單 | 僅在發現警示標的時 |
+| 台股每日摘要 | 平日 13:35 Asia/Taipei | 批次抓取現價與當日損益；執行 AI 新聞分析管線（總經、台股、加密貨幣）；格式化並發送完整投資組合報告 | 每次皆發送 |
+| 美股盤中 | 平日 13:00 America/New_York | 讀取 `price-alerts.yml`；檢查價格閾值觸發與盤中漲跌幅 >2%；觸發時對個股執行 AI 論點確認 | 僅在觸發價格警示或論點破壞時 |
+| 美股每日摘要 | 平日 16:00 America/New_York | 同台股每日摘要，篩選美股與加密貨幣部位 | 每次皆發送 |
+| 每週回顧 | 週六 10:00 Asia/Taipei | 讀取最近 10 筆投資組合 + 研究記錄；抓取 SPY 與 0050.TW 基準績效；透過 AI 生成每週反思 | 每次皆發送 |
+
+## Telegram 機器人
+
+### 指令列表
+
+| 指令 | 子指令 | 說明 |
+|------|--------|------|
+| `/status` | — | 確認代理正在運作 |
+| `/watchlist` | `list` / `add TICKER [note]` / `remove TICKER` | 管理觀察清單 |
+| `/alert` | `show [TICKER]` / `set TICKER above=X` / `set TICKER below=X` | 查看或設定價格警示閾值 |
+| `/holdings` | `update TICKER SHARES COST` | 更新 `portfolio.csv` 中的持倉 |
+| `/research` | `[TW\|US]`（預設 US） | 手動觸發盤前研究 |
+
+### 自由對話
+
+任何非指令訊息都會由對話代理處理。代理可取得今日日期與 `RESEARCH-LOG.md` 最近 2 筆記錄作為上下文——**無法**存取即時持倉資料或現價。意圖分為三種：
+
+- **command**（指令）— 建議對應的斜線指令（例如 `/watchlist add AAPL`）
+- **research**（研究）— 透過 Tavily 搜尋新聞，以 3–5 句回答
+- **other**（其他）— 禮貌性對話回覆
+
+## 記憶系統
+
+Researcher 透過四個只能附加的 Markdown 檔案在執行之間累積上下文，路徑由 `RESEARCHER_MEMORY_PATH`（預設 `./memory`）控制：
+
+| 檔案 | 由誰寫入 | 由誰讀取 |
+|------|----------|----------|
+| `INVESTMENT-STRATEGY.md` | 手動編輯 | 盤前工作流程——讓研究紮根於你的投資策略 |
+| `RESEARCH-LOG.md` | 盤前、盤中、每週回顧 | 所有代理——取最近 2–3 筆作為滾動上下文 |
+| `PORTFOLIO-LOG.md` | 每日摘要 | 每週回顧——取最近 10 筆評估績效 |
+| `WEEKLY-REVIEW.md` | 每週回顧 | — |
+
+所有研究工作流程透過 PydanticAI 驅動，以 Tavily 進行即時新聞搜尋，並在失敗時自動指數退避重試。
 
 ## 技術棧
 
