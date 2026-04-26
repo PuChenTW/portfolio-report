@@ -1,2 +1,14 @@
 [tool.uv.workspace]
 members = ["portfolio-core", "mcp-server", "researcher"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.12",
+]
+
+[tool.ruff]
+line-length = 200
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

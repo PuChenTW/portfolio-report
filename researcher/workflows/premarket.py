@@ -1,22 +1,16 @@
 import json
 import os
-import sys
-import time
 from datetime import datetime
 
 from pydantic import BaseModel
-from pydantic_ai import Agent
-from pydantic_ai.common_tools.tavily import tavily_search_tool
 
-from portfolio.portfolio import TZ_TAIPEI, compute_summary
-from portfolio.telegram import send_telegram_messages
+from portfolio.portfolio import TZ_TAIPEI
 from portfolio.watchlist import load_watchlist
 
-from researcher.memory.io import append_entry, last_n_entries, read_file
+from researcher.services.agent_runner import make_search_agent, run_agent_sync
+from researcher.services.workflow_deps import WorkflowDeps
 
-_MEMORY_PATH = os.environ.get("RESEARCHER_MEMORY_PATH", "./memory")
 _WATCHLIST_PATH = os.environ.get("WATCHLIST_CSV_PATH", "./watchlist.csv")
-_PORTFOLIO_CSV = os.environ.get("PORTFOLIO_CSV_PATH", "./portfolio.csv")
 
 
 class _PremarketSummary(BaseModel):
@@ -79,17 +73,19 @@ _PREMARKET_PROMPT_US = """\
 語言：台灣繁體中文。"""
 
 
-def run(market: str) -> None:
+def run(market: str, deps: WorkflowDeps) -> None:
     """Run pre-market research for 'TW' or 'US'."""
     now = datetime.now(TZ_TAIPEI)
     today_str = now.strftime("%Y-%m-%d")
     print(f"[{now.isoformat()}] premarket.run({market})")
 
-    strategy = read_file(f"{_MEMORY_PATH}/INVESTMENT-STRATEGY.md")
-    recent_log = last_n_entries(f"{_MEMORY_PATH}/RESEARCH-LOG.md", 3)
+    assert deps.portfolio is not None, "premarket requires a PortfolioReader"
+
+    strategy = deps.memory.read_file(deps.memory.resolve("INVESTMENT-STRATEGY.md"))
+    recent_log = deps.memory.last_n_entries(deps.memory.resolve("RESEARCH-LOG.md"), 3)
     watchlist = load_watchlist(_WATCHLIST_PATH)
 
-    summary = compute_summary(_PORTFOLIO_CSV)
+    summary = deps.portfolio.fetch_summary()
     positions = summary.get("positions", [])
 
     if market == "TW":
@@ -102,8 +98,7 @@ def run(market: str) -> None:
         prompt_template = _PREMARKET_PROMPT_US
 
     portfolio_json = json.dumps(
-        [{"ticker": p["ticker"], "gain_loss_pct": p["gain_loss_pct"]} for p in relevant]
-        + [{"ticker": w.ticker, "watchlist": True} for w in watch_relevant],
+        [{"ticker": p["ticker"], "gain_loss_pct": p["gain_loss_pct"]} for p in relevant] + [{"ticker": w.ticker, "watchlist": True} for w in watch_relevant],
         ensure_ascii=False,
     )
 
@@ -115,26 +110,11 @@ def run(market: str) -> None:
         portfolio_json=portfolio_json,
     )
 
-    agent = Agent(
-        "google-gla:gemini-3-flash-preview",
-        tools=[tavily_search_tool(os.environ["TAVILY_API_KEY"])],
-        output_type=_PremarketSummary,
+    agent = make_search_agent(
+        _PremarketSummary,
         system_prompt=f"今天日期是 {today_str}。所有搜尋必須使用今日日期。",
     )
-
-    result_data: _PremarketSummary | None = None
-    for attempt in range(5):
-        try:
-            result = agent.run_sync(prompt)
-            result_data = result.output
-            break
-        except Exception as e:
-            if attempt < 4:
-                time.sleep(2 ** attempt)
-                print(f"[warn] premarket agent failed attempt {attempt + 1}: {e}", file=sys.stderr)
-            else:
-                print(f"[warn] premarket agent failed after 5 attempts: {e}", file=sys.stderr)
-
+    result_data = run_agent_sync(agent, prompt, max_attempts=5, label=f"premarket/{market}")
     if result_data is None:
         return
 
@@ -143,12 +123,10 @@ def run(market: str) -> None:
     log_lines += [f"• {row}" for row in result_data.catalyst_rows]
     if result_data.action_rows:
         log_lines.append("### Actions")
-        log_lines += [f"{i+1}. {row}" for i, row in enumerate(result_data.action_rows)]
-    append_entry(f"{_MEMORY_PATH}/RESEARCH-LOG.md", "\n".join(log_lines))
+        log_lines += [f"{i + 1}. {row}" for i, row in enumerate(result_data.action_rows)]
+    deps.memory.append_entry(deps.memory.resolve("RESEARCH-LOG.md"), "\n".join(log_lines))
 
     if result_data.alert_tickers:
-        alert_msg = f"⚠️ *盤前預警 {market}*\n" + "\n".join(
-            f"• {t}" for t in result_data.alert_tickers
-        )
-        action_msg = "\n".join(f"{i+1}\\. {row}" for i, row in enumerate(result_data.action_rows))
-        send_telegram_messages([alert_msg + "\n\n" + action_msg])
+        alert_msg = f"⚠️ *盤前預警 {market}*\n" + "\n".join(f"• {t}" for t in result_data.alert_tickers)
+        action_msg = "\n".join(f"{i + 1}\\. {row}" for i, row in enumerate(result_data.action_rows))
+        deps.notifier.send_messages([alert_msg + "\n\n" + action_msg])

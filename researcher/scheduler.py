@@ -7,8 +7,10 @@ import researcher.workflows.premarket as premarket
 import researcher.workflows.midday as midday
 import researcher.workflows.daily_summary as daily_summary
 import researcher.workflows.weekly_review as weekly_review
+from researcher.services.workflow_deps import make_deps
 
-_TZ = "Asia/Taipei"
+_TZ_TW = "Asia/Taipei"
+_TZ_US = "America/New_York"
 
 
 def _esc(text: str) -> str:
@@ -23,9 +25,7 @@ def _wrap(fn, *args):
         try:
             await loop.run_in_executor(None, fn, *args)
         except Exception as e:
-            plain = (
-                f"Workflow {fn.__name__}({', '.join(str(a) for a in args)}) failed: {e}"
-            )
+            plain = f"Workflow {fn.__name__}({', '.join(str(a) for a in args)}) failed: {e}"
             print(f"❌ {plain}")
             try:
                 send_telegram_messages([f"❌ {_esc(plain)}"])
@@ -36,36 +36,37 @@ def _wrap(fn, *args):
 
 
 def create_scheduler() -> AsyncIOScheduler:
-    scheduler = AsyncIOScheduler(timezone=_TZ)
+    scheduler = AsyncIOScheduler(timezone=_TZ_TW)
+    deps = make_deps()
 
-    # TW market (weekdays)
+    # TW market (weekdays, Taipei time)
     scheduler.add_job(
-        _wrap(premarket.run, "TW"),
-        CronTrigger(day_of_week="mon-fri", hour=8, minute=30, timezone=_TZ),
+        _wrap(premarket.run, "TW", deps),
+        CronTrigger(day_of_week="mon-fri", hour=8, minute=30, timezone=_TZ_TW),
     )
     scheduler.add_job(
-        _wrap(daily_summary.run, "TW"),
-        CronTrigger(day_of_week="mon-fri", hour=13, minute=35, timezone=_TZ),
-    )
-
-    # US market (weekdays, times in Taipei = ET+13)
-    scheduler.add_job(
-        _wrap(premarket.run, "US"),
-        CronTrigger(day_of_week="mon-fri", hour=21, minute=30, timezone=_TZ),
-    )
-    scheduler.add_job(
-        _wrap(midday.run),
-        CronTrigger(day_of_week="tue-sat", hour=2, minute=0, timezone=_TZ),
-    )
-    scheduler.add_job(
-        _wrap(daily_summary.run, "US"),
-        CronTrigger(day_of_week="tue-sat", hour=5, minute=0, timezone=_TZ),
+        _wrap(daily_summary.run, "TW", deps),
+        CronTrigger(day_of_week="mon-fri", hour=13, minute=35, timezone=_TZ_TW),
     )
 
-    # Weekly review (Saturday)
+    # US market (weekdays, Eastern time)
     scheduler.add_job(
-        _wrap(weekly_review.run),
-        CronTrigger(day_of_week="sat", hour=10, minute=0, timezone=_TZ),
+        _wrap(premarket.run, "US", deps),
+        CronTrigger(day_of_week="mon-fri", hour=8, minute=30, timezone=_TZ_US),
+    )
+    scheduler.add_job(
+        _wrap(midday.run, deps),
+        CronTrigger(day_of_week="mon-fri", hour=13, minute=0, timezone=_TZ_US),
+    )
+    scheduler.add_job(
+        _wrap(daily_summary.run, "US", deps),
+        CronTrigger(day_of_week="mon-fri", hour=16, minute=0, timezone=_TZ_US),
+    )
+
+    # Weekly review (Saturday, Taipei time)
+    scheduler.add_job(
+        _wrap(weekly_review.run, deps),
+        CronTrigger(day_of_week="sat", hour=10, minute=0, timezone=_TZ_TW),
     )
 
     return scheduler

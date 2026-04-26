@@ -1,14 +1,12 @@
-import asyncio
 import os
 import sys
 from datetime import datetime
 
 from pydantic import BaseModel
-from pydantic_ai import Agent
-from pydantic_ai.common_tools.tavily import tavily_search_tool
 
 from portfolio.portfolio import TZ_TAIPEI
 from researcher.memory.io import last_n_entries
+from researcher.services.agent_runner import make_search_agent, run_agent_async
 
 _MEMORY_PATH = os.environ.get("RESEARCHER_MEMORY_PATH", "./memory")
 
@@ -36,27 +34,10 @@ async def handle_chat(message: str) -> str:
         f"語言：台灣繁體中文。"
     )
 
-    agent = Agent(
-        "google-gla:gemini-3-flash-preview",
-        tools=[tavily_search_tool(os.environ["TAVILY_API_KEY"])],
-        output_type=_ChatIntent,
-        system_prompt=f"date={date_str}",
-    )
-
-    intent: _ChatIntent | None = None
-    for attempt in range(3):
-        try:
-            result = await agent.run(intent_prompt)
-            intent = result.output
-            break
-        except Exception as e:
-            if attempt < 2:
-                await asyncio.sleep(2**attempt)
-            else:
-                print(f"[warn] chat intent failed: {e}", file=sys.stderr)
-                return "抱歉，目前無法處理您的訊息，請稍後再試。"
-
+    agent = make_search_agent(_ChatIntent, system_prompt=f"date={date_str}")
+    intent = await run_agent_async(agent, intent_prompt, max_attempts=3, label="chat")
     if intent is None:
+        print("[warn] chat intent failed after retries", file=sys.stderr)
         return "抱歉，目前無法處理您的訊息，請稍後再試。"
     if intent.kind == "command" and intent.command:
         return f"已識別為指令：`{intent.command}`\n請直接輸入此指令執行。"

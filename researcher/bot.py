@@ -1,6 +1,6 @@
 import asyncio
 import os
-from telegram import BotCommand, Update
+from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -16,18 +16,11 @@ from researcher.handlers.commands import (
     handle_status,
 )
 from researcher.handlers.chat import handle_chat
-from researcher.workflows import daily_summary
+from researcher.services.workflow_deps import make_deps
+from researcher.workflows import premarket
 
 _WATCHLIST_PATH = os.environ.get("WATCHLIST_CSV_PATH", "./watchlist.csv")
 _ALERTS_PATH = os.environ.get("PRICE_ALERTS_PATH", "./price-alerts.yml")
-
-_COMMANDS = [
-    BotCommand("status", "Check agent status"),
-    BotCommand("watchlist", "Manage watchlist: add/remove/list"),
-    BotCommand("alert", "Manage price alerts: set/show"),
-    BotCommand("holdings", "Update a position: update TICKER SHARES COST"),
-    BotCommand("research", "Trigger pre-market research: [TW|US]"),
-]
 
 
 async def _cmd_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -55,8 +48,9 @@ async def _cmd_status(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> No
 async def _cmd_research(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     args = context.args or []
     market = args[0].upper() if args else "US"
+    deps = make_deps()
     loop = asyncio.get_running_loop()
-    await loop.run_in_executor(None, daily_summary.run, market)
+    await loop.run_in_executor(None, premarket.run, market, deps)
     await update.message.reply_text(f"✅ Research triggered for {market}.")  # type: ignore[union-attr]
 
 

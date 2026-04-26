@@ -1,34 +1,27 @@
-import os
 import sys
 from datetime import datetime
 
-from portfolio.telegram import send_telegram_messages
 from portfolio.report import format_telegram_messages
 
-from researcher.pipeline.data import (
-    TZ_TAIPEI, _fmt_today, fetch_portfolio, build_holdings, build_totals,
-)
+from researcher.pipeline.data import TZ_TAIPEI, _fmt_today
 from researcher.pipeline.news import _NEWS_DEFAULTS, run_claude_news
-
-from researcher.memory.io import append_entry
-
-_MEMORY_PATH = os.environ.get("RESEARCHER_MEMORY_PATH", "./memory")
+from researcher.services.workflow_deps import WorkflowDeps
 
 
-def run(market: str) -> None:
+def run(market: str, deps: WorkflowDeps) -> None:
     """Run daily portfolio summary for 'TW' or 'US' market close."""
     print(f"[{datetime.now(TZ_TAIPEI).isoformat()}] daily_summary.run({market})")
 
-    data = fetch_portfolio()
-    us_holdings, tw_holdings, crypto_holdings = build_holdings(data)
-    totals = build_totals(data)
+    assert deps.portfolio is not None, "daily_summary requires a PortfolioReader"
+
+    data = deps.portfolio.fetch()
+    us_holdings, tw_holdings, crypto_holdings = deps.portfolio.build_holdings(data)
+    totals = deps.portfolio.build_totals(data)
     errors = data["summary"].get("errors", [])
     if errors:
         print(f"[warn] Price fetch errors: {errors}", file=sys.stderr)
 
-    news = run_claude_news(
-        us_holdings, tw_holdings, crypto_holdings, totals, summary=data["summary"]
-    )
+    news = run_claude_news(us_holdings, tw_holdings, crypto_holdings, totals, summary=data["summary"])
 
     tw_notes: dict = news.get("tw_notes", {})
     for h in tw_holdings:
@@ -58,14 +51,8 @@ def run(market: str) -> None:
         tip_rows=news.get("tip_rows", _NEWS_DEFAULTS["tip_rows"]),
     )
 
-    result = send_telegram_messages(messages)
-    print(result)
+    deps.notifier.send_messages(messages)
 
-    # Persist snapshot to PORTFOLIO-LOG.md
     snapshot_lines = [f"## {today} {market} Close"]
-    snapshot_lines.append(
-        f"TWD: {totals['tw_total']} {tw_change_str} | "
-        f"USD: {totals['us_total']} {us_change_str} | "
-        f"Crypto: {totals['crypto_total']} {crypto_change_str}"
-    )
-    append_entry(f"{_MEMORY_PATH}/PORTFOLIO-LOG.md", "\n".join(snapshot_lines))
+    snapshot_lines.append(f"TWD: {totals['tw_total']} {tw_change_str} | USD: {totals['us_total']} {us_change_str} | Crypto: {totals['crypto_total']} {crypto_change_str}")
+    deps.memory.append_entry(deps.memory.resolve("PORTFOLIO-LOG.md"), "\n".join(snapshot_lines))

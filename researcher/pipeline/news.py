@@ -1,16 +1,12 @@
 import json
-import os
-import sys
-import time
 from datetime import datetime
 from typing import cast
 
 from pydantic import BaseModel
-from pydantic_ai import Agent
-from pydantic_ai.common_tools.tavily import tavily_search_tool
 
 from portfolio.report import USHolding, TWHolding, CryptoHolding
 from researcher.pipeline.data import TZ_TAIPEI, _fmt_today
+from researcher.services.agent_runner import make_search_agent, run_agent_sync
 
 _NEWS_DEFAULTS = {
     "macro_rows": ["今日總體經濟數據暫無法取得。"],
@@ -68,15 +64,6 @@ class _NewsSummary(BaseModel):
     tip_rows: list[str]
 
 
-def _make_news_agent(date_str: str) -> Agent[None, _NewsSummary]:
-    return Agent(
-        "google-gla:gemini-3-flash-preview",
-        tools=[tavily_search_tool(os.environ["TAVILY_API_KEY"])],
-        output_type=_NewsSummary,
-        system_prompt=f"今天日期是 {date_str}。所有搜尋查詢都必須包含這個日期，確保只取得今日最新資訊，不可搜尋過去日期的內容。",
-    )
-
-
 def _build_portfolio_context(
     us_holdings: list[USHolding],
     tw_holdings: list[TWHolding],
@@ -116,26 +103,17 @@ def _build_portfolio_context(
         },
         "categories": categories,
         "positions": (
-            [
-                _pos_entry(h["ticker"], {"gain_loss": h["gain_loss"]})
-                for h in us_holdings
-            ]
+            [_pos_entry(h["ticker"], {"gain_loss": h["gain_loss"]}) for h in us_holdings]
             + [
                 _pos_entry(
                     h["ticker"],
-                    {
-                        "gain_loss": positions_by_ticker.get(h["ticker"], {}).get(
-                            "gain_loss_pct", None
-                        )
-                    },
+                    {"gain_loss": positions_by_ticker.get(h["ticker"], {}).get("gain_loss_pct", None)},
                 )
                 for h in tw_holdings
             ]
             + [
                 _pos_entry(
-                    h["ticker"] + "-USD"
-                    if h["ticker"] + "-USD" in positions_by_ticker
-                    else h["ticker"],
+                    h["ticker"] + "-USD" if h["ticker"] + "-USD" in positions_by_ticker else h["ticker"],
                     {"quantity": h["quantity"]},
                 )
                 for h in crypto_holdings
@@ -156,20 +134,12 @@ def run_claude_news(
     date_str = now.strftime("%Y-%m-%d")
 
     if summary is not None:
-        portfolio_summary = _build_portfolio_context(
-            us_holdings, tw_holdings, crypto_holdings, summary
-        )
+        portfolio_summary = _build_portfolio_context(us_holdings, tw_holdings, crypto_holdings, summary)
     else:
         portfolio_summary = {
-            "美股": [
-                {"ticker": h["ticker"], "gain_loss": h["gain_loss"]}
-                for h in us_holdings
-            ],
+            "美股": [{"ticker": h["ticker"], "gain_loss": h["gain_loss"]} for h in us_holdings],
             "台股": [{"ticker": h["ticker"]} for h in tw_holdings],
-            "加密貨幣": [
-                {"ticker": h["ticker"], "quantity": h["quantity"]}
-                for h in crypto_holdings
-            ],
+            "加密貨幣": [{"ticker": h["ticker"], "quantity": h["quantity"]} for h in crypto_holdings],
         }
 
     prompt = _NEWS_PROMPT_TEMPLATE.format(
@@ -178,40 +148,11 @@ def run_claude_news(
         portfolio_json=json.dumps(portfolio_summary, ensure_ascii=False),
     )
 
-    _MAX_RETRIES = 5
-    _BASE_DELAY = 2
-
-    for attempt in range(_MAX_RETRIES):
-        try:
-            result = _make_news_agent(date_str).run_sync(prompt)
-            for msg in result.all_messages():
-                for part in msg.parts:
-                    kind = getattr(part, "part_kind", None)
-                    if kind == "tool-call":
-                        print(
-                            f"[search] {getattr(part, 'tool_name', '?')}: {getattr(part, 'args', '')}",
-                            file=sys.stderr,
-                        )
-                    elif kind == "tool-return":
-                        preview = str(getattr(part, "content", ""))[:200]
-                        print(
-                            f"[result] {getattr(part, 'tool_name', '?')}: {preview}",
-                            file=sys.stderr,
-                        )
-            return cast(_NewsSummary, result.output).model_dump()
-        except Exception as e:
-            if attempt < _MAX_RETRIES - 1:
-                delay = _BASE_DELAY * (2**attempt)
-                print(
-                    f"[warn] PydanticAI news agent failed (attempt {attempt + 1}/{_MAX_RETRIES}): {e}",
-                    file=sys.stderr,
-                )
-                print(f"[warn] Retrying in {delay}s...", file=sys.stderr)
-                time.sleep(delay)
-            else:
-                print(
-                    f"[warn] PydanticAI news agent failed after {_MAX_RETRIES} attempts: {e}",
-                    file=sys.stderr,
-                )
-
-    return _NEWS_DEFAULTS
+    agent = make_search_agent(
+        _NewsSummary,
+        system_prompt=f"今天日期是 {date_str}。所有搜尋查詢都必須包含這個日期，確保只取得今日最新資訊，不可搜尋過去日期的內容。",
+    )
+    output = run_agent_sync(agent, prompt, max_attempts=5, label="news")
+    if output is None:
+        return _NEWS_DEFAULTS
+    return cast(_NewsSummary, output).model_dump()

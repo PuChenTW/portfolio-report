@@ -1,20 +1,15 @@
-import os
 import sys
-import time
 from datetime import datetime
 
 import yfinance as yf
 from pydantic import BaseModel
-from pydantic_ai import Agent
-from pydantic_ai.common_tools.tavily import tavily_search_tool
 
 from portfolio.portfolio import TZ_TAIPEI
 from portfolio.report import _esc
-from portfolio.telegram import send_telegram_messages
 
-from researcher.memory.io import append_entry, last_n_entries
+from researcher.services.agent_runner import make_search_agent, run_agent_sync
+from researcher.services.workflow_deps import WorkflowDeps
 
-_MEMORY_PATH = os.environ.get("RESEARCHER_MEMORY_PATH", "./memory")
 _BENCHMARKS = ["SPY", "0050.TW"]
 
 
@@ -42,14 +37,14 @@ def _fetch_benchmark_returns() -> dict[str, float]:
     return result
 
 
-def run() -> None:
+def run(deps: WorkflowDeps) -> None:
     """Saturday weekly review: synthesize the week and send summary."""
     now = datetime.now(TZ_TAIPEI)
     date_str = now.strftime("%Y-%m-%d")
     print(f"[{now.isoformat()}] weekly_review.run()")
 
-    portfolio_log = last_n_entries(f"{_MEMORY_PATH}/PORTFOLIO-LOG.md", 10)
-    research_log = last_n_entries(f"{_MEMORY_PATH}/RESEARCH-LOG.md", 10)
+    portfolio_log = deps.memory.last_n_entries(deps.memory.resolve("PORTFOLIO-LOG.md"), 10)
+    research_log = deps.memory.last_n_entries(deps.memory.resolve("RESEARCH-LOG.md"), 10)
     benchmarks = _fetch_benchmark_returns()
     benchmark_str = "  ".join(f"{t}: {v:+.2f}%" for t, v in benchmarks.items())
 
@@ -66,25 +61,11 @@ def run() -> None:
         f"語言：台灣繁體中文。"
     )
 
-    agent = Agent(
-        "google-gla:gemini-3-flash-preview",
-        tools=[tavily_search_tool(os.environ["TAVILY_API_KEY"])],
-        output_type=_WeeklyReview,
+    agent = make_search_agent(
+        _WeeklyReview,
         system_prompt=f"週末覆盤日期：{date_str}",
     )
-
-    review: _WeeklyReview | None = None
-    for attempt in range(5):
-        try:
-            result = agent.run_sync(prompt)
-            review = result.output
-            break
-        except Exception as e:
-            if attempt < 4:
-                time.sleep(2 ** attempt)
-            else:
-                print(f"[warn] weekly review agent failed: {e}", file=sys.stderr)
-
+    review = run_agent_sync(agent, prompt, max_attempts=5, label="weekly_review")
     if review is None:
         return
 
@@ -97,7 +78,7 @@ def run() -> None:
     lines.append("### Key Lessons")
     lines += [f"• {row}" for row in review.key_lessons]
     lines.append(f"### Outlook\n{review.outlook}")
-    append_entry(f"{_MEMORY_PATH}/WEEKLY-REVIEW.md", "\n".join(lines))
+    deps.memory.append_entry(deps.memory.resolve("WEEKLY-REVIEW.md"), "\n".join(lines))
 
     msg_lines = [f"📅 *週末覆盤 {_esc(date_str)}*", f"指數: {_esc(benchmark_str)}", ""]
     msg_lines.append("✅ *做對的事*")
@@ -109,4 +90,4 @@ def run() -> None:
     msg_lines.append("💡 *關鍵學習*")
     msg_lines += [f"• {_esc(row)}" for row in review.key_lessons]
     msg_lines.append(f"\n📈 *下週展望*\n{_esc(review.outlook)}")
-    send_telegram_messages(["\n".join(msg_lines)])
+    deps.notifier.send_messages(["\n".join(msg_lines)])
