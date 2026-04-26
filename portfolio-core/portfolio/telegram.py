@@ -21,9 +21,7 @@ def send_telegram_file(
 
     tmp_path = None
     try:
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".html", delete=False, encoding="utf-8"
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False, encoding="utf-8") as f:
             f.write(html_content)
             tmp_path = f.name
 
@@ -77,12 +75,14 @@ def send_telegram_messages(messages: list[str]) -> str:
 
     url = _TELEGRAM_SEND_MSG_API.format(token=token)
     for i, text in enumerate(messages):
-        payload = json.dumps({
-            "chat_id": chat_id,
-            "text": text,
-            "parse_mode": "MarkdownV2",
-            "disable_web_page_preview": True,
-        }).encode()
+        payload = json.dumps(
+            {
+                "chat_id": chat_id,
+                "text": text,
+                "parse_mode": "MarkdownV2",
+                "disable_web_page_preview": True,
+            }
+        ).encode()
         req = urllib.request.Request(
             url,
             data=payload,

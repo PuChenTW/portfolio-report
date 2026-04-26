@@ -5,15 +5,7 @@ from portfolio.alerts import load_alerts, check_positions
 @pytest.fixture
 def rules_path(tmp_path):
     p = tmp_path / "price-alerts.yml"
-    p.write_text(
-        "defaults:\n"
-        "  stop_loss_pct: -0.15\n"
-        "  take_profit_pct: 0.50\n"
-        "overrides:\n"
-        "  TSLA:\n"
-        "    below: 200.0\n"
-        "    above: 400.0\n"
-    )
+    p.write_text("defaults:\n  stop_loss_pct: -0.15\n  take_profit_pct: 0.50\noverrides:\n  TSLA:\n    below: 200.0\n    above: 400.0\n")
     return str(p)
 
 

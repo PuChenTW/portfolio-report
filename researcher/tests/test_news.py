@@ -4,19 +4,31 @@ from portfolio.report import USHolding, TWHolding, CryptoHolding
 _SUMMARY = {
     "positions": [
         {
-            "ticker": "MSFT", "currency": "USD", "category": "美股",
-            "current_value": 1200.0, "gain_loss_pct": 18.5,
-            "pct_of_currency_total": 50.0, "pct_of_global_usd": 30.0,
+            "ticker": "MSFT",
+            "currency": "USD",
+            "category": "美股",
+            "current_value": 1200.0,
+            "gain_loss_pct": 18.5,
+            "pct_of_currency_total": 50.0,
+            "pct_of_global_usd": 30.0,
         },
         {
-            "ticker": "2330.TW", "currency": "TWD", "category": "台股",
-            "current_value": 92000.0, "gain_loss_pct": 58.62,
-            "pct_of_currency_total": 100.0, "pct_of_global_usd": 45.0,
+            "ticker": "2330.TW",
+            "currency": "TWD",
+            "category": "台股",
+            "current_value": 92000.0,
+            "gain_loss_pct": 58.62,
+            "pct_of_currency_total": 100.0,
+            "pct_of_global_usd": 45.0,
         },
         {
-            "ticker": "BTC-USD", "currency": "USD", "category": "加密貨幣",
-            "current_value": 3250.0, "gain_loss_pct": 8.3,
-            "pct_of_currency_total": 50.0, "pct_of_global_usd": 25.0,
+            "ticker": "BTC-USD",
+            "currency": "USD",
+            "category": "加密貨幣",
+            "current_value": 3250.0,
+            "gain_loss_pct": 8.3,
+            "pct_of_currency_total": 50.0,
+            "pct_of_global_usd": 25.0,
         },
     ],
     "by_currency": {
@@ -41,24 +53,35 @@ _SUMMARY = {
 
 _US: list[USHolding] = [
     {
-        "ticker": "MSFT", "name": "Microsoft", "category": "TECH",
-        "price": "$415.00", "day_change": "+1.2%", "day_change_up": True,
-        "gain_loss": "+18.5%", "gain_loss_up": True,
+        "ticker": "MSFT",
+        "name": "Microsoft",
+        "category": "TECH",
+        "price": "$415.00",
+        "day_change": "+1.2%",
+        "day_change_up": True,
+        "gain_loss": "+18.5%",
+        "gain_loss_up": True,
     }
 ]
 
 _TW: list[TWHolding] = [
     {
-        "ticker": "2330.TW", "name": "台積電",
-        "price": "NT$920", "day_change": "+0.5%", "day_change_up": True,
+        "ticker": "2330.TW",
+        "name": "台積電",
+        "price": "NT$920",
+        "day_change": "+0.5%",
+        "day_change_up": True,
         "note": "—",
     }
 ]
 
 _CRYPTO: list[CryptoHolding] = [
     {
-        "ticker": "BTC", "name": "Bitcoin",
-        "price": "$65,000", "day_change": "+2.0%", "day_change_up": True,
+        "ticker": "BTC",
+        "name": "Bitcoin",
+        "price": "$65,000",
+        "day_change": "+2.0%",
+        "day_change_up": True,
         "quantity": "0.05 顆",
     }
 ]

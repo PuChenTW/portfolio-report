@@ -1,5 +1,10 @@
 import pytest
-from researcher.handlers.commands import handle_watchlist, handle_alert, handle_holdings, handle_status
+from researcher.handlers.commands import (
+    handle_watchlist,
+    handle_alert,
+    handle_holdings,
+    handle_status,
+)
 
 
 @pytest.fixture

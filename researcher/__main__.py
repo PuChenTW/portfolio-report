@@ -25,6 +25,7 @@ async def main() -> None:
     async with app:
         await app.initialize()
         from researcher.bot import _COMMANDS
+
         await app.bot.set_my_commands(_COMMANDS)
         await app.start()
         await app.updater.start_polling()  # type: ignore

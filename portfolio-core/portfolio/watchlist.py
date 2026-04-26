@@ -15,10 +15,7 @@ def load_watchlist(path: str) -> list[WatchlistEntry]:
     if not p.exists():
         return []
     with p.open(newline="", encoding="utf-8") as f:
-        return [
-            WatchlistEntry(ticker=r["ticker"], name=r["name"], note=r.get("note", ""))
-            for r in csv.DictReader(f)
-        ]
+        return [WatchlistEntry(ticker=r["ticker"], name=r["name"], note=r.get("note", "")) for r in csv.DictReader(f)]
 
 
 def add_ticker(path: str, entry: WatchlistEntry) -> None:

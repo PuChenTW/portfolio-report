@@ -7,11 +7,16 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from portfolio.portfolio import compute_summary, _fetch_prices
 from portfolio.report import (
-    USHolding, TWHolding, CryptoHolding,
+    USHolding,
+    TWHolding,
+    CryptoHolding,
     generate_daily_report_html,
     format_telegram_messages,
-    _render_us_row, _render_tw_row, _render_crypto_row,
-    _render_macro_rows, _render_tip_rows,
+    _render_us_row,
+    _render_tw_row,
+    _render_crypto_row,
+    _render_macro_rows,
+    _render_tip_rows,
     _esc,
 )
 from portfolio.telegram import send_telegram_file, send_telegram_messages
@@ -37,12 +42,7 @@ def make_mock_ticker(price):
 @pytest.fixture
 def csv_path(tmp_path):
     p = tmp_path / "portfolio.csv"
-    p.write_text(
-        "ticker,name,shares,cost_price,currency,category\n"
-        "2330.TW,台積電,100,580,TWD,台股\n"
-        "VOO,Vanguard S&P500,5,420,USD,美國ETF\n"
-        "BTC-USD,Bitcoin,0.05,60000,USD,加密貨幣\n"
-    )
+    p.write_text("ticker,name,shares,cost_price,currency,category\n2330.TW,台積電,100,580,TWD,台股\nVOO,Vanguard S&P500,5,420,USD,美國ETF\nBTC-USD,Bitcoin,0.05,60000,USD,加密貨幣\n")
     return str(p)
 
 
@@ -158,9 +158,14 @@ def test_summary_allocation_no_fx_graceful(mock_tickers_cls, csv_path):
 
 def test_render_us_row_contains_ticker_and_tag():
     h: USHolding = {
-        "ticker": "NVDA", "name": "Nvidia Corp", "category": "TECH",
-        "price": "$134.25", "day_change": "+2.34%", "day_change_up": True,
-        "gain_loss": "+18.5%", "gain_loss_up": True,
+        "ticker": "NVDA",
+        "name": "Nvidia Corp",
+        "category": "TECH",
+        "price": "$134.25",
+        "day_change": "+2.34%",
+        "day_change_up": True,
+        "gain_loss": "+18.5%",
+        "gain_loss_up": True,
     }
     html = _render_us_row(h, is_last=False)
     assert "NVDA" in html
@@ -175,9 +180,14 @@ def test_render_us_row_contains_ticker_and_tag():
 
 def test_render_us_row_last_has_no_border():
     h: USHolding = {
-        "ticker": "VT", "name": "Vanguard Total World", "category": "ETF",
-        "price": "$100", "day_change": "-1%", "day_change_up": False,
-        "gain_loss": "-5%", "gain_loss_up": False,
+        "ticker": "VT",
+        "name": "Vanguard Total World",
+        "category": "ETF",
+        "price": "$100",
+        "day_change": "-1%",
+        "day_change_up": False,
+        "gain_loss": "-5%",
+        "gain_loss_up": False,
     }
     html = _render_us_row(h, is_last=True)
     assert "border-bottom" not in html
@@ -186,8 +196,11 @@ def test_render_us_row_last_has_no_border():
 
 def test_render_tw_row_contains_note():
     h: TWHolding = {
-        "ticker": "2330", "name": "台積電",
-        "price": "NT$980", "day_change": "-0.51%", "day_change_up": False,
+        "ticker": "2330",
+        "name": "台積電",
+        "price": "NT$980",
+        "day_change": "-0.51%",
+        "day_change_up": False,
         "note": "外資買超 12億",
     }
     html = _render_tw_row(h, is_last=False)
@@ -199,8 +212,11 @@ def test_render_tw_row_contains_note():
 
 def test_render_crypto_row_shows_quantity():
     h: CryptoHolding = {
-        "ticker": "BTC", "name": "Bitcoin",
-        "price": "$84,230", "day_change": "+1.2%", "day_change_up": True,
+        "ticker": "BTC",
+        "name": "Bitcoin",
+        "price": "$84,230",
+        "day_change": "+1.2%",
+        "day_change_up": True,
         "quantity": "0.2286 顆",
     }
     html = _render_crypto_row(h, is_last=True)
@@ -252,23 +268,34 @@ def test_generate_daily_report_html_returns_complete_html():
         crypto_change_up=False,
         us_holdings=[
             {
-                "ticker": "VT", "name": "Vanguard Total World", "category": "ETF",
-                "price": "$100.50", "day_change": "+1.34%", "day_change_up": True,
-                "gain_loss": "+5.2%", "gain_loss_up": True,
+                "ticker": "VT",
+                "name": "Vanguard Total World",
+                "category": "ETF",
+                "price": "$100.50",
+                "day_change": "+1.34%",
+                "day_change_up": True,
+                "gain_loss": "+5.2%",
+                "gain_loss_up": True,
             }
         ],
         us_event="FOMC 會議紀要顯示聯準會偏向維持利率不變。",
         tw_holdings=[
             {
-                "ticker": "加權指數", "name": "台股加權指數",
-                "price": "21,500", "day_change": "+0.8%", "day_change_up": True,
+                "ticker": "加權指數",
+                "name": "台股加權指數",
+                "price": "21,500",
+                "day_change": "+0.8%",
+                "day_change_up": True,
                 "note": "外資買超 45億",
             }
         ],
         crypto_holdings=[
             {
-                "ticker": "BTC", "name": "Bitcoin",
-                "price": "$84,230", "day_change": "-1.23%", "day_change_up": False,
+                "ticker": "BTC",
+                "name": "Bitcoin",
+                "price": "$84,230",
+                "day_change": "-1.23%",
+                "day_change_up": False,
                 "quantity": "0.2286 顆",
             }
         ],
@@ -291,6 +318,7 @@ def test_generate_daily_report_html_returns_complete_html():
 
 
 # --- send_telegram_file tests ---
+
 
 class _FakeResponse:
     def __init__(self, status=200):
@@ -353,22 +381,39 @@ def _sample_msgs() -> list[str]:
         crypto_total="$18,545",
         crypto_change="▲ +2.10% 今日",
         crypto_change_up=True,
-        us_holdings=[{
-            "ticker": "NVDA", "name": "Nvidia", "category": "TECH",
-            "price": "$875.00", "day_change": "+3.2%", "day_change_up": True,
-            "gain_loss": "+45.1%", "gain_loss_up": True,
-        }],
+        us_holdings=[
+            {
+                "ticker": "NVDA",
+                "name": "Nvidia",
+                "category": "TECH",
+                "price": "$875.00",
+                "day_change": "+3.2%",
+                "day_change_up": True,
+                "gain_loss": "+45.1%",
+                "gain_loss_up": True,
+            }
+        ],
         us_event="Nvidia Q1 法說超預期，上調全年展望。",
-        tw_holdings=[{
-            "ticker": "2330.TW", "name": "台積電",
-            "price": "NT$920", "day_change": "+1.5%", "day_change_up": True,
-            "note": "外資買超 12億",
-        }],
-        crypto_holdings=[{
-            "ticker": "BTC", "name": "Bitcoin",
-            "price": "$76,126", "day_change": "+2.1%", "day_change_up": True,
-            "quantity": "0.2286 顆",
-        }],
+        tw_holdings=[
+            {
+                "ticker": "2330.TW",
+                "name": "台積電",
+                "price": "NT$920",
+                "day_change": "+1.5%",
+                "day_change_up": True,
+                "note": "外資買超 12億",
+            }
+        ],
+        crypto_holdings=[
+            {
+                "ticker": "BTC",
+                "name": "Bitcoin",
+                "price": "$76,126",
+                "day_change": "+2.1%",
+                "day_change_up": True,
+                "quantity": "0.2286 顆",
+            }
+        ],
         macro_rows=["Fed 維持利率不變，點陣圖暗示年內降息一次。"],
         tip_rows=["NVDA 法說後短線過熱，可考慮分批獲利了結。"],
     )
@@ -429,11 +474,16 @@ def test_send_telegram_messages_missing_token(monkeypatch):
 
 def test_send_telegram_messages_api_error(monkeypatch):
     import urllib.error
+
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "fake-token")
     monkeypatch.setenv("TELEGRAM_CHAT_ID", "bad-id")
 
     error = urllib.error.HTTPError(
-        url="", code=400, msg="Bad Request", hdrs=None, fp=None  # type: ignore
+        url="",
+        code=400,
+        msg="Bad Request",
+        hdrs=None,
+        fp=None,  # type: ignore
     )
     error.read = lambda n=-1: b"Bad Request"
 
@@ -445,11 +495,16 @@ def test_send_telegram_messages_api_error(monkeypatch):
 
 def test_send_telegram_file_api_error(monkeypatch):
     import urllib.error
+
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "fake-token")
     monkeypatch.setenv("TELEGRAM_CHAT_ID", "bad-id")
 
     error = urllib.error.HTTPError(
-        url="", code=400, msg="Bad Request", hdrs=None, fp=None  # type: ignore
+        url="",
+        code=400,
+        msg="Bad Request",
+        hdrs=None,
+        fp=None,  # type: ignore
     )
     error.read = lambda n=-1: b"Bad Request"
 
@@ -460,6 +515,7 @@ def test_send_telegram_file_api_error(monkeypatch):
 
 
 # --- Cash position tests ---
+
 
 @pytest.fixture
 def csv_path_with_cash(tmp_path):

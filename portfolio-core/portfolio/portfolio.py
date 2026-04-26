@@ -136,16 +136,10 @@ def compute_summary(csv_path: str) -> dict[str, Any]:
             v["cost"] = round(v["cost"], 2)
             v["value"] = round(v["value"], 2)
             # category allocation within currency
-            v["pct_of_currency_total"] = (
-                round(v["value"] / bc["total_value"] * 100, 2)
-                if bc["total_value"]
-                else 0.0
-            )
+            v["pct_of_currency_total"] = round(v["value"] / bc["total_value"] * 100, 2) if bc["total_value"] else 0.0
         total_gl = bc["total_value"] - bc["total_cost"]
         bc["total_gain_loss"] = round(total_gl, 2)
-        bc["total_gain_loss_pct"] = (
-            round(total_gl / bc["total_cost"] * 100, 2) if bc["total_cost"] else 0.0
-        )
+        bc["total_gain_loss_pct"] = round(total_gl / bc["total_cost"] * 100, 2) if bc["total_cost"] else 0.0
         bc["total_cost"] = round(bc["total_cost"], 2)
         bc["total_value"] = round(bc["total_value"], 2)
 
@@ -161,25 +155,16 @@ def compute_summary(csv_path: str) -> dict[str, Any]:
         global_total_usd = sum(usd_totals.values())
 
         if global_total_usd > 0:
-            currency_pct = {
-                cur: round(usd_val / global_total_usd * 100, 2)
-                for cur, usd_val in usd_totals.items()
-            }
+            currency_pct = {cur: round(usd_val / global_total_usd * 100, 2) for cur, usd_val in usd_totals.items()}
             # Per-position global pct
             for p in positions:
-                val_usd = (
-                    p["current_value"] / fx_rate
-                    if p["currency"] == "TWD"
-                    else p["current_value"]
-                )
+                val_usd = p["current_value"] / fx_rate if p["currency"] == "TWD" else p["current_value"]
                 p["pct_of_global_usd"] = round(val_usd / global_total_usd * 100, 2)
 
     # Per-position currency pct
     for p in positions:
         cur_total = by_currency.get(p["currency"], {}).get("total_value", 0.0)
-        p["pct_of_currency_total"] = (
-            round(p["current_value"] / cur_total * 100, 2) if cur_total else 0.0
-        )
+        p["pct_of_currency_total"] = round(p["current_value"] / cur_total * 100, 2) if cur_total else 0.0
 
     return {
         "positions": positions,

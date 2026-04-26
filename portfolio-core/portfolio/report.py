@@ -259,12 +259,28 @@ DAILY_REPORT_TEMPLATE = """\
 </html>"""
 
 
-_MDV2_ESCAPE = str.maketrans({
-    "_": r"\_", "*": r"\*", "[": r"\[", "]": r"\]", "(": r"\(",
-    ")": r"\)", "~": r"\~", "`": r"\`", ">": r"\>", "#": r"\#",
-    "+": r"\+", "-": r"\-", "=": r"\=", "|": r"\|", "{": r"\{",
-    "}": r"\}", ".": r"\.", "!": r"\!",
-})
+_MDV2_ESCAPE = str.maketrans(
+    {
+        "_": r"\_",
+        "*": r"\*",
+        "[": r"\[",
+        "]": r"\]",
+        "(": r"\(",
+        ")": r"\)",
+        "~": r"\~",
+        "`": r"\`",
+        ">": r"\>",
+        "#": r"\#",
+        "+": r"\+",
+        "-": r"\-",
+        "=": r"\=",
+        "|": r"\|",
+        "{": r"\{",
+        "}": r"\}",
+        ".": r"\.",
+        "!": r"\!",
+    }
+)
 
 
 def _esc(s: str) -> str:
@@ -319,9 +335,7 @@ def format_telegram_messages(
         arrow = "▲" if h["day_change_up"] else "▼"
         gl_arrow = "▲" if h["gain_loss_up"] else "▼"
         label = f"{h['ticker']} {h['category']}"[:14]
-        msg2_lines.append(
-            f"{label:<14} {h['price']:>9} {arrow}{h['day_change']:>6} {gl_arrow}{h['gain_loss']:>5} {_fmt_pct(h):>6}"
-        )
+        msg2_lines.append(f"{label:<14} {h['price']:>9} {arrow}{h['day_change']:>6} {gl_arrow}{h['gain_loss']:>5} {_fmt_pct(h):>6}")
     msg2_lines.append("```")
     msg2_lines.append(f"⚡ _{_esc(us_event)}_")
     msg2_lines.append("")
@@ -332,9 +346,7 @@ def format_telegram_messages(
     for h in tw_holdings:
         arrow = "▲" if h["day_change_up"] else "▼"
         label = f"{h['ticker']} {h['name']}"[:12]
-        msg2_lines.append(
-            f"{label:<12} {h['price']:>9} {arrow}{h['day_change']:>6} {_fmt_pct(h):>6}  {h['note']}"
-        )
+        msg2_lines.append(f"{label:<12} {h['price']:>9} {arrow}{h['day_change']:>6} {_fmt_pct(h):>6}  {h['note']}")
     msg2_lines.append("```")
 
     # Message 3: Crypto + Tips + Footer
@@ -344,9 +356,7 @@ def format_telegram_messages(
     for h in crypto_holdings:
         arrow = "▲" if h["day_change_up"] else "▼"
         label = f"{h['ticker']} {h['name']}"[:12]
-        msg3_lines.append(
-            f"{label:<12} {h['price']:>11} {arrow}{h['day_change']:>6} {_fmt_pct(h):>6}  {h['quantity']}"
-        )
+        msg3_lines.append(f"{label:<12} {h['price']:>11} {arrow}{h['day_change']:>6} {_fmt_pct(h):>6}  {h['quantity']}")
     msg3_lines.append("```")
     msg3_lines.append("")
     msg3_lines.append("💡 *今日重點提示*")
@@ -378,16 +388,9 @@ def generate_daily_report_html(
     tip_rows: list[str],
 ) -> str:
     """Generate the daily investment summary HTML email from pre-aggregated data."""
-    us_rows = "".join(
-        _render_us_row(h, i == len(us_holdings) - 1) for i, h in enumerate(us_holdings)
-    )
-    tw_rows = "".join(
-        _render_tw_row(h, i == len(tw_holdings) - 1) for i, h in enumerate(tw_holdings)
-    )
-    crypto_rows = "".join(
-        _render_crypto_row(h, i == len(crypto_holdings) - 1)
-        for i, h in enumerate(crypto_holdings)
-    )
+    us_rows = "".join(_render_us_row(h, i == len(us_holdings) - 1) for i, h in enumerate(us_holdings))
+    tw_rows = "".join(_render_tw_row(h, i == len(tw_holdings) - 1) for i, h in enumerate(tw_holdings))
+    crypto_rows = "".join(_render_crypto_row(h, i == len(crypto_holdings) - 1) for i, h in enumerate(crypto_holdings))
 
     return (
         DAILY_REPORT_TEMPLATE.replace("[TODAY_DATE]", today_date)

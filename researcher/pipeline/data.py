@@ -153,9 +153,7 @@ def build_totals(data: dict) -> dict:
     us_cost = usd.get("total_cost", 0.0) - crypto_cost
 
     us_gl_pct = (us_value - us_cost) / us_cost * 100 if us_cost else 0.0
-    crypto_gl_pct = (
-        (crypto_value - crypto_cost) / crypto_cost * 100 if crypto_cost else 0.0
-    )
+    crypto_gl_pct = (crypto_value - crypto_cost) / crypto_cost * 100 if crypto_cost else 0.0
 
     return {
         "tw_total": _fmt_twd(twd.get("total_value", 0.0)),

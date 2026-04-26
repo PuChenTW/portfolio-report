@@ -6,9 +6,7 @@ from researcher.memory.io import read_file, append_entry, last_n_entries
 @pytest.fixture
 def log_path(tmp_path):
     p = tmp_path / "RESEARCH-LOG.md"
-    p.write_text(
-        "## 2026-04-23\nentry one\n\n## 2026-04-24\nentry two\n\n## 2026-04-25\nentry three\n"
-    )
+    p.write_text("## 2026-04-23\nentry one\n\n## 2026-04-24\nentry two\n\n## 2026-04-25\nentry three\n")
     return str(p)
 
 
