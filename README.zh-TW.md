@@ -17,17 +17,28 @@
 
 ```mermaid
 flowchart TD
-    CSV[portfolio.csv] --> Core[portfolio-core]
-    Core --> MCP[MCP Server]
-    Core --> Agent[Researcher Agent]
-    MCP -->|"get_portfolio_summary, get_price"| Claude[Claude / MCP Client]
-    Agent --> Pipeline[Pipeline<br/>data + news]
-    Pipeline --> PydanticAI[PydanticAI + Tavily]
-    Pipeline --> Report[HTML + MarkdownV2 Report]
-    Report --> Telegram[Telegram]
-    Agent --> Scheduler[APScheduler<br/>排程工作]
-    Agent --> Bot[Telegram Bot<br/>斜線指令]
-    Bot --> Telegram
+  subgraph 使用者觸發
+    U([使用者]) --> B[Telegram 機器人]
+    B --> H[Bot 指令]
+  end
+
+  subgraph 排程觸發
+    S{{APScheduler}} --> W[排程工作流程]
+  end
+
+  subgraph 共用服務
+    PC[(portfolio-core)]
+    AI[/PydanticAI + Tavily/]
+    YF[/yfinance/]
+    TG>Telegram 推送]
+  end
+
+  H --> PC
+  H --> TG
+  W --> PC
+  W --> AI
+  W --> YF
+  W --> TG
 ```
 
 ## 快速開始

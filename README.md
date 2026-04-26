@@ -17,17 +17,28 @@ An automated investment portfolio system that combines an MCP server for Claude,
 
 ```mermaid
 flowchart TD
-    CSV[portfolio.csv] --> Core[portfolio-core]
-    Core --> MCP[MCP Server]
-    Core --> Agent[Researcher Agent]
-    MCP -->|"get_portfolio_summary, get_price"| Claude[Claude / MCP Client]
-    Agent --> Pipeline[Pipeline<br/>data + news]
-    Pipeline --> PydanticAI[PydanticAI + Tavily]
-    Pipeline --> Report[HTML + MarkdownV2 Report]
-    Report --> Telegram[Telegram]
-    Agent --> Scheduler[APScheduler<br/>cron jobs]
-    Agent --> Bot[Telegram Bot<br/>slash commands]
-    Bot --> Telegram
+  subgraph User-Triggered
+    U([User]) --> B[Telegram Bot]
+    B --> H[Bot Commands]
+  end
+
+  subgraph Scheduled
+    S{{APScheduler}} --> W[Scheduled Workflows]
+  end
+
+  subgraph Shared Services
+    PC[(portfolio-core)]
+    AI[/PydanticAI + Tavily/]
+    YF[/yfinance/]
+    TG>Telegram Delivery]
+  end
+
+  H --> PC
+  H --> TG
+  W --> PC
+  W --> AI
+  W --> YF
+  W --> TG
 ```
 
 ## Quick Start
