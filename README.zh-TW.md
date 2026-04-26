@@ -46,6 +46,7 @@ flowchart TD
 git clone <repo-url>
 cd portfolio-mcp
 uv sync
+cp mcp-server/portfolio-example.csv portfolio.csv  # 依實際持倉填寫
 ```
 
 建立 `.env` 檔案並填入以下必要變數：
@@ -75,6 +76,8 @@ uv run --package mcp-server python mcp-server/server.py
 ```
 
 設定你的 MCP 用戶端（例如 Claude Desktop）透過 stdio transport 指向此伺服器。
+
+架構說明、測試模式及如何新增工作流程，請參閱 [DEVELOPMENT.md](DEVELOPMENT.md)。
 
 ### 執行 Telegram 機器人 + 排程器
 

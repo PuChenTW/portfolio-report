@@ -46,6 +46,7 @@ flowchart TD
 git clone <repo-url>
 cd portfolio-mcp
 uv sync
+cp mcp-server/portfolio-example.csv portfolio.csv  # edit with your holdings
 ```
 
 Create a `.env` file with the required variables listed below:
@@ -75,6 +76,8 @@ uv run --package mcp-server python mcp-server/server.py
 ```
 
 Configure your MCP client (e.g. Claude Desktop) to point to this server using stdio transport.
+
+For architecture details, testing patterns, and how to add workflows, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ### Run the Telegram Bot + Scheduler
 
