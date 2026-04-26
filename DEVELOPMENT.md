@@ -45,13 +45,10 @@ portfolio-mcp/
 The `researcher` package uses a layered architecture to keep business logic testable and independent of external services:
 
 ```
-interfaces/ports.py   ← Protocol definitions (Notifier, PortfolioReader, MemoryReader)
-        ↑
-services/             ← Concrete implementations injected at startup
-        ↑
-workflows/            ← Orchestration — depend only on Protocol interfaces
-        ↑
-infra/                ← External adapters (Telegram, etc.)
+infra/                → implements → interfaces/ports.py (Notifier, PortfolioReader, MemoryReader)
+services/             → implements → interfaces/ports.py
+services/workflow_deps.py → composes infra + services into WorkflowDeps
+workflows/            → depends on → WorkflowDeps (via Protocol interfaces only)
 ```
 
 **Dependency injection** is handled by `WorkflowDeps` in `services/workflow_deps.py`. The `make_deps()` factory wires together the concrete implementations. Workflows receive a `WorkflowDeps` instance and call methods on the Protocol interfaces — they never import `TelegramNotifier` or `PortfolioService` directly. This makes workflows trivially testable by passing mock implementations.
@@ -130,12 +127,27 @@ Tests live in:
 Example pattern:
 
 ```python
+from researcher.services.workflow_deps import WorkflowDeps
+from researcher.workflows import daily_summary
+
 class FakeNotifier:
     def __init__(self):
         self.messages = []
 
     def send_messages(self, messages: list[str]) -> None:
         self.messages.extend(messages)
+
+class FakeMemory:
+    def read_file(self, path: str) -> str: return ""
+    def last_n_entries(self, path: str, n: int) -> str: return ""
+    def append_entry(self, path: str, content: str) -> None: pass
+    def resolve(self, filename: str) -> str: return filename
+
+class FakePortfolio:
+    def fetch(self) -> dict: return {"holdings": [], "errors": []}
+    def fetch_summary(self) -> dict: return {}
+    def build_holdings(self, data: dict) -> tuple: return ([], [])
+    def build_totals(self, data: dict) -> dict: return {}
 
 def test_daily_summary_sends_report():
     notifier = FakeNotifier()
@@ -146,7 +158,7 @@ def test_daily_summary_sends_report():
 
 ## Adding a New Workflow
 
-1. **Create the workflow file** at `researcher/workflows/<name>.py`. Define a `run(deps: WorkflowDeps)` function that uses only the Protocol interfaces on `deps`.
+1. **Create the workflow file** at `researcher/workflows/<name>.py`. Define a `run` function using only the Protocol interfaces on `deps`. Use `run(deps: WorkflowDeps)` for single-market workflows (e.g. `midday`, `weekly_review`) or `run(market: str, deps: WorkflowDeps)` for market-aware workflows (e.g. `daily_summary`, `premarket`).
 
 2. **Use deps interfaces**, not concrete classes:
    ```python
@@ -157,12 +169,19 @@ def test_daily_summary_sends_report():
        deps.notifier.send_messages(["Hello from new workflow"])
    ```
 
-3. **Register in the scheduler** (`researcher/scheduler.py`):
+3. **Register in the scheduler** (`researcher/scheduler.py`). For a deps-only workflow:
    ```python
    import researcher.workflows.<name> as <name>
 
    scheduler.add_job(
        _wrap(<name>.run, deps),
+       CronTrigger(day_of_week="mon-fri", hour=9, minute=0, timezone=_TZ_TW),
+   )
+   ```
+   For a market-aware workflow, pass the market string as the first positional arg:
+   ```python
+   scheduler.add_job(
+       _wrap(<name>.run, "TW", deps),
        CronTrigger(day_of_week="mon-fri", hour=9, minute=0, timezone=_TZ_TW),
    )
    ```
