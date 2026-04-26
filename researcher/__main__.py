@@ -7,6 +7,7 @@ from portfolio.telegram import send_telegram_messages
 
 from researcher.scheduler import create_scheduler
 from researcher.bot import create_application
+from researcher.bot import COMMANDS
 
 
 async def main() -> None:
@@ -24,9 +25,8 @@ async def main() -> None:
 
     async with app:
         await app.initialize()
-        from researcher.bot import _COMMANDS
 
-        await app.bot.set_my_commands(_COMMANDS)
+        await app.bot.set_my_commands(COMMANDS)
         await app.start()
         await app.updater.start_polling()  # type: ignore
         print("Bot polling started. Press Ctrl+C to stop.")

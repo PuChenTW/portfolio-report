@@ -1,6 +1,7 @@
 import asyncio
 import os
-from telegram import Update
+from typing import Any
+from telegram import BotCommand, Update
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -64,13 +65,21 @@ async def _on_text(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(reply)
 
 
+_COMMAND_REGISTRY: list[tuple[str, str, Any]] = [
+    ("status", "Check agent status", _cmd_status),
+    ("watchlist", "Manage watchlist: add/remove/list", _cmd_watchlist),
+    ("alert", "Manage price alerts: set/show", _cmd_alert),
+    ("holdings", "Update a position: update TICKER SHARES COST", _cmd_holdings),
+    ("research", "Trigger pre-market research: [TW|US]", _cmd_research),
+]
+
+COMMANDS = [BotCommand(name, desc) for name, desc, _ in _COMMAND_REGISTRY]
+
+
 def create_application() -> Application:
     token = os.environ["TELEGRAM_BOT_TOKEN"]
     app = Application.builder().token(token).build()
-    app.add_handler(CommandHandler("watchlist", _cmd_watchlist))
-    app.add_handler(CommandHandler("alert", _cmd_alert))
-    app.add_handler(CommandHandler("holdings", _cmd_holdings))
-    app.add_handler(CommandHandler("status", _cmd_status))
-    app.add_handler(CommandHandler("research", _cmd_research))
+    for name, _, handler in _COMMAND_REGISTRY:
+        app.add_handler(CommandHandler(name, handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _on_text))
     return app
