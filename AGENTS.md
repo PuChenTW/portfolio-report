@@ -6,7 +6,7 @@ This repository is a `uv` workspace with three Python packages:
 
 - `portfolio-core/`: shared portfolio logic in `portfolio/`, plus tests in `portfolio-core/tests/`.
 - `mcp-server/`: MCP server entry point in `server.py` and sample data in `portfolio.csv`.
-- `researcher/`: Telegram bot and scheduled research agent, with pipeline logic in `researcher/pipeline/`, workflows in `researcher/workflows/`, memory persistence in `researcher/memory/`, and command handlers in `researcher/handlers/`.
+- `researcher/`: Telegram bot and scheduled research agent, with pipeline logic in `researcher/pipeline/`, workflows in `researcher/workflows/`, memory persistence in `researcher/memory/`, command handlers in `researcher/handlers/`, and a layered service architecture in `researcher/interfaces/`, `researcher/services/`, and `researcher/infra/`.
 
 Keep shared domain logic in `portfolio-core`. `mcp-server` should stay thin and expose tools only. `researcher` owns the pipeline, research, scheduling, and delivery.
 
@@ -22,6 +22,12 @@ Core modules:
 - `researcher/workflows/midday.py`: US midday price alert and thesis check.
 - `researcher/workflows/weekly_review.py`: weekly portfolio reflection.
 - `researcher/memory/io.py`: read/append/query markdown memory files.
+- `researcher/interfaces/ports.py`: `Notifier`, `PortfolioReader`, and `MemoryReader` Protocol definitions — the DI contracts all workflows depend on.
+- `researcher/services/agent_runner.py`: `make_search_agent`, `run_agent_sync`, `run_agent_async` — single source for PydanticAI agent construction and exponential-backoff retry.
+- `researcher/services/memory_service.py`: `MemoryService` — concrete `MemoryReader` wrapping `memory/io.py`.
+- `researcher/services/portfolio_service.py`: `PortfolioService` — concrete `PortfolioReader` wrapping `pipeline/data.py` and `portfolio.portfolio`.
+- `researcher/services/workflow_deps.py`: `WorkflowDeps` dataclass and `make_deps()` factory — composition root for injecting services into workflows.
+- `researcher/infra/telegram.py`: `TelegramNotifier` — concrete `Notifier` adapter over `portfolio.telegram`.
 
 ## Build, Test, and Development Commands
 
@@ -34,10 +40,12 @@ Run commands from the repo root unless noted otherwise:
 - `cd mcp-server && uv run mcp dev server.py`: open the MCP inspector for local tool testing.
 - `uv run --package researcher python -m researcher`: start the Telegram bot and scheduler.
 - `uv run pyright`: run static type checking using `pyrightconfig.json`.
+- `uv run ruff format .`: format all Python files across the workspace.
+- `uv run ruff format --check .`: check formatting without modifying files.
 
 ## Coding Style & Naming Conventions
 
-Target Python 3.13. Use 4-space indentation, type hints on public functions, and `snake_case` for modules, functions, and variables. Keep functions focused, prefer early returns, and avoid unnecessary abstraction. Comments should explain why, not restate code. No formatter is configured here, so match the surrounding style and keep imports tidy.
+Target Python 3.13. Use 4-space indentation, type hints on public functions, and `snake_case` for modules, functions, and variables. Keep functions focused, prefer early returns, and avoid unnecessary abstraction. Comments should explain why, not restate code. Run `uv run ruff format .` before committing to keep style consistent.
 
 Design constraints:
 
