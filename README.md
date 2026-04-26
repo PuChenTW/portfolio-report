@@ -20,13 +20,13 @@ flowchart TD
     CSV[portfolio.csv] --> Core[portfolio-core]
     Core --> MCP[MCP Server]
     Core --> Agent[Researcher Agent]
-    MCP -->|get_portfolio_summary\nget_price| Claude[Claude / MCP Client]
-    Agent --> Pipeline[Pipeline\ndata + news]
+    MCP -->|"get_portfolio_summary, get_price"| Claude[Claude / MCP Client]
+    Agent --> Pipeline[Pipeline<br/>data + news]
     Pipeline --> PydanticAI[PydanticAI + Tavily]
     Pipeline --> Report[HTML + MarkdownV2 Report]
     Report --> Telegram[Telegram]
-    Agent --> Scheduler[APScheduler\ncron jobs]
-    Agent --> Bot[Telegram Bot\nslash commands]
+    Agent --> Scheduler[APScheduler<br/>cron jobs]
+    Agent --> Bot[Telegram Bot<br/>slash commands]
     Bot --> Telegram
 ```
 
@@ -48,11 +48,7 @@ cd portfolio-mcp
 uv sync
 ```
 
-Copy your environment variables:
-
-```bash
-cp .env.example .env   # or create .env manually
-```
+Create a `.env` file with the required variables listed below:
 
 Minimum required variables:
 
@@ -64,13 +60,21 @@ GOOGLE_API_KEY=<your-gemini-key>
 TAVILY_API_KEY=<your-tavily-key>
 ```
 
+Optional (have working defaults):
+
+```env
+WATCHLIST_CSV_PATH=./watchlist.csv
+PRICE_ALERTS_PATH=./price-alerts.yml
+RESEARCHER_MEMORY_PATH=./memory
+```
+
 ### Run the MCP Server
 
 ```bash
 uv run --package mcp-server python mcp-server/server.py
 ```
 
-Configure your MCP client (e.g. Claude Desktop) to point to this server. See `.mcp.json.example` for reference.
+Configure your MCP client (e.g. Claude Desktop) to point to this server using stdio transport.
 
 ### Run the Telegram Bot + Scheduler
 
