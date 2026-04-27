@@ -43,30 +43,36 @@ def create_scheduler() -> AsyncIOScheduler:
     scheduler.add_job(
         _wrap(premarket.run, "TW", deps),
         CronTrigger(day_of_week="mon-fri", hour=8, minute=30, timezone=_TZ_TW),
+        misfire_grace_time=60,
     )
     scheduler.add_job(
         _wrap(daily_summary.run, "TW", deps),
         CronTrigger(day_of_week="mon-fri", hour=13, minute=35, timezone=_TZ_TW),
+        misfire_grace_time=60,
     )
 
     # US market (weekdays, Eastern time)
     scheduler.add_job(
         _wrap(premarket.run, "US", deps),
         CronTrigger(day_of_week="mon-fri", hour=8, minute=30, timezone=_TZ_US),
+        misfire_grace_time=60,
     )
     scheduler.add_job(
         _wrap(midday.run, deps),
         CronTrigger(day_of_week="mon-fri", hour=13, minute=0, timezone=_TZ_US),
+        misfire_grace_time=60,
     )
     scheduler.add_job(
         _wrap(daily_summary.run, "US", deps),
         CronTrigger(day_of_week="mon-fri", hour=16, minute=0, timezone=_TZ_US),
+        misfire_grace_time=60,
     )
 
     # Weekly review (Saturday, Taipei time)
     scheduler.add_job(
         _wrap(weekly_review.run, deps),
         CronTrigger(day_of_week="sat", hour=10, minute=0, timezone=_TZ_TW),
+        misfire_grace_time=60,
     )
 
     return scheduler
