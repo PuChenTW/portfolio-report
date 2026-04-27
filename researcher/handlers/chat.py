@@ -114,25 +114,22 @@ async def handle_chat(message: str, user_id: int) -> str:
         return "抱歉，目前無法處理您的訊息，請稍後再試。"
 
 
-def reset_chat_session(user_id: int) -> str:
-    """Clear the conversation history for a user."""
-    _sessions.pop(user_id, None)
-    return "對話已重置，開始新的對話。"
+def reset_chat_session(user_id: int) -> tuple[str, list[ModelMessage]]:
+    """Clear the conversation history and return the snapshot for async persistence."""
+    history = _sessions.pop(user_id, [])
+    return "對話已重置，開始新的對話。", history
 
 
-async def save_chat_to_memory(user_id: int) -> str:
-    """Summarize the current conversation and save it to the research log."""
-    history = _sessions.get(user_id)
+async def persist_session(history: list[ModelMessage]) -> None:
+    """Summarize and save a session snapshot to the research log (fire-and-forget)."""
     if not history:
-        return "目前沒有對話紀錄可儲存。"
+        return
     agent = _get_agent()
     try:
-        result = await agent.run(
+        await agent.run(
             "請將以上對話的重點摘要，包括討論的標的、重要洞見與行動項目（條列式，100字以內），然後使用 save_note 工具儲存摘要。",
             deps=_make_deps(),
             message_history=history,
         )
-        return f"對話已儲存。摘要：\n{result.output}"
     except Exception as e:
-        print(f"[warn] save_chat failed for user {user_id}: {e}", file=sys.stderr)
-        return "儲存失敗，請稍後再試。"
+        print(f"[warn] session persist failed: {e}", file=sys.stderr)

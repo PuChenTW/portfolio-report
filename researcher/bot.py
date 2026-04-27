@@ -16,7 +16,7 @@ from researcher.handlers.commands import (
     handle_holdings,
     handle_status,
 )
-from researcher.handlers.chat import handle_chat, reset_chat_session, save_chat_to_memory
+from researcher.handlers.chat import handle_chat, persist_session, reset_chat_session
 from researcher.services.workflow_deps import make_deps
 from researcher.workflows import premarket
 
@@ -57,12 +57,9 @@ async def _cmd_research(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def _cmd_newchat(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id if update.effective_user else 0
-    await update.message.reply_text(reset_chat_session(user_id))  # type: ignore[union-attr]
-
-
-async def _cmd_savechat(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.effective_user.id if update.effective_user else 0
-    reply = await save_chat_to_memory(user_id)
+    reply, history = reset_chat_session(user_id)
+    if history:
+        asyncio.create_task(persist_session(history))
     await update.message.reply_text(reply)  # type: ignore[union-attr]
 
 
@@ -84,7 +81,6 @@ _COMMAND_REGISTRY: list[tuple[str, str, Any]] = [
     ("holdings", "Update a position: update TICKER SHARES COST", _cmd_holdings),
     ("research", "Trigger pre-market research: [TW|US]", _cmd_research),
     ("newchat", "Reset the current conversation session", _cmd_newchat),
-    ("savechat", "Summarize and save conversation to research log", _cmd_savechat),
 ]
 
 COMMANDS = [BotCommand(name, desc) for name, desc, _ in _COMMAND_REGISTRY]
