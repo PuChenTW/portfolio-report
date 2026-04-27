@@ -1,7 +1,6 @@
-import os
-
 from portfolio.portfolio import compute_summary
 from portfolio.report import CryptoHolding, TWHolding, USHolding
+from researcher.config import settings
 from researcher.pipeline.data import build_holdings, build_totals, fetch_portfolio
 
 
@@ -10,8 +9,7 @@ class PortfolioService:
         return fetch_portfolio()
 
     def fetch_summary(self) -> dict:
-        csv_path = os.environ.get("PORTFOLIO_CSV_PATH", "./portfolio.csv")
-        return compute_summary(csv_path)
+        return compute_summary(settings.portfolio_csv_path)
 
     def build_holdings(self, data: dict) -> tuple[list[USHolding], list[TWHolding], list[CryptoHolding]]:
         return build_holdings(data)

@@ -1,10 +1,9 @@
-import os
 from datetime import datetime
 
 from portfolio.portfolio import compute_summary, fetch_prev_closes, TZ_TAIPEI
 from portfolio.report import USHolding, TWHolding, CryptoHolding
+from researcher.config import settings
 
-CSV_PATH = os.environ.get("PORTFOLIO_CSV_PATH", "./portfolio.csv")
 WEEKDAY_ZH = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
 
 
@@ -29,7 +28,7 @@ def _fmt_twd(value: float) -> str:
 
 def fetch_portfolio() -> dict:
     """Fetch summary + previous closes in two batch calls."""
-    summary = compute_summary(CSV_PATH)
+    summary = compute_summary(settings.portfolio_csv_path)
     tickers = [p["ticker"] for p in summary["positions"] if not p.get("is_cash")]
     prev_closes = fetch_prev_closes(tickers)
     return {"summary": summary, "prev_closes": prev_closes}

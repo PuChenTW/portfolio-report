@@ -1,5 +1,4 @@
 import json
-import os
 from datetime import datetime
 
 from pydantic import BaseModel
@@ -7,10 +6,9 @@ from pydantic import BaseModel
 from portfolio.portfolio import TZ_TAIPEI
 from portfolio.watchlist import load_watchlist
 
+from researcher.config import settings
 from researcher.services.agent_runner import make_search_agent, run_agent_sync
 from researcher.services.workflow_deps import WorkflowDeps
-
-_WATCHLIST_PATH = os.environ.get("WATCHLIST_CSV_PATH", "./watchlist.csv")
 
 
 class _PremarketSummary(BaseModel):
@@ -83,7 +81,7 @@ def run(market: str, deps: WorkflowDeps) -> None:
 
     strategy = deps.memory.read_file(deps.memory.resolve("INVESTMENT-STRATEGY.md"))
     recent_log = deps.memory.last_n_entries(deps.memory.resolve("RESEARCH-LOG.md"), 3)
-    watchlist = load_watchlist(_WATCHLIST_PATH)
+    watchlist = load_watchlist(settings.watchlist_csv_path)
 
     summary = deps.portfolio.fetch_summary()
     positions = summary.get("positions", [])

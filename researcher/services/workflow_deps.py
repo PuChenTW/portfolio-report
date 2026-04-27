@@ -1,6 +1,6 @@
-import os
 from dataclasses import dataclass, field
 
+from researcher.config import settings
 from researcher.infra.telegram import TelegramNotifier
 from researcher.interfaces.ports import MemoryReader, Notifier, PortfolioReader
 from researcher.services.memory_service import MemoryService
@@ -17,6 +17,6 @@ class WorkflowDeps:
 def make_deps() -> WorkflowDeps:
     return WorkflowDeps(
         notifier=TelegramNotifier(),
-        memory=MemoryService(os.environ.get("RESEARCHER_MEMORY_PATH", "./memory")),
+        memory=MemoryService(settings.researcher_memory_path),
         portfolio=PortfolioService(),
     )

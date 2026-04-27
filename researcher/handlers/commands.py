@@ -1,16 +1,13 @@
 import csv
-import os
 import yaml
 from pathlib import Path
 
 from portfolio.watchlist import WatchlistEntry, add_ticker, load_watchlist, remove_ticker
 from portfolio.alerts import load_alerts
-
-_WATCHLIST_PATH = os.environ.get("WATCHLIST_CSV_PATH", "./watchlist.csv")
-_ALERTS_PATH = os.environ.get("PRICE_ALERTS_PATH", "./price-alerts.yml")
+from researcher.config import settings
 
 
-def handle_watchlist(args: list[str], watchlist_path: str = _WATCHLIST_PATH) -> str:
+def handle_watchlist(args: list[str], watchlist_path: str = settings.watchlist_csv_path) -> str:
     if not args:
         return "Usage: /watchlist [add TICKER [note] | remove TICKER | list]"
     sub = args[0]
@@ -33,7 +30,7 @@ def handle_watchlist(args: list[str], watchlist_path: str = _WATCHLIST_PATH) -> 
     return "Usage: /watchlist [add TICKER [note] | remove TICKER | list]"
 
 
-def handle_alert(args: list[str], alerts_path: str = _ALERTS_PATH) -> str:
+def handle_alert(args: list[str], alerts_path: str = settings.price_alerts_path) -> str:
     if not args:
         return "Usage: /alert [set TICKER above=X | set TICKER below=X | show [TICKER]]"
     sub = args[0]
@@ -70,7 +67,7 @@ def handle_alert(args: list[str], alerts_path: str = _ALERTS_PATH) -> str:
 
 def handle_holdings(
     args: list[str],
-    portfolio_path: str = os.environ.get("PORTFOLIO_CSV_PATH", "./portfolio.csv"),
+    portfolio_path: str = settings.portfolio_csv_path,
 ) -> str:
     if not args or args[0] != "update" or len(args) < 4:
         return "Usage: /holdings update TICKER SHARES COST"

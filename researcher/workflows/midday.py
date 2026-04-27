@@ -1,4 +1,3 @@
-import os
 from datetime import datetime
 
 from pydantic import BaseModel
@@ -8,10 +7,9 @@ import yfinance as yf
 from portfolio.portfolio import TZ_TAIPEI
 from portfolio.alerts import load_alerts, check_positions
 
+from researcher.config import settings
 from researcher.services.agent_runner import make_search_agent, run_agent_sync
 from researcher.services.workflow_deps import WorkflowDeps
-
-_ALERTS_PATH = os.environ.get("PRICE_ALERTS_PATH", "./price-alerts.yml")
 
 
 class _ThesisCheck(BaseModel):
@@ -33,7 +31,7 @@ def run(deps: WorkflowDeps) -> None:
     positions = [p for p in summary["positions"] if not p.get("is_cash")]
     us_positions = [p for p in positions if p["currency"] == "USD"]
 
-    rules = load_alerts(_ALERTS_PATH)
+    rules = load_alerts(settings.price_alerts_path)
     price_alerts = check_positions(us_positions, rules)
 
     tickers = [p["ticker"] for p in us_positions]

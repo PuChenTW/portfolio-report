@@ -1,5 +1,4 @@
 import asyncio
-import os
 import sys
 import time
 from typing import TypeVar
@@ -7,6 +6,8 @@ from typing import TypeVar
 from pydantic import BaseModel
 from pydantic_ai import Agent
 from pydantic_ai.common_tools.tavily import tavily_search_tool
+
+from researcher.config import settings
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -19,9 +20,10 @@ def make_search_agent(
     model: str = _DEFAULT_MODEL,
 ) -> Agent[None, T]:
     """Construct a PydanticAI Agent with Tavily search tool."""
+    tools = [tavily_search_tool(settings.tavily_api_key)] if settings.tavily_api_key else []
     return Agent(
         model,
-        tools=[tavily_search_tool(os.environ["TAVILY_API_KEY"])],
+        tools=tools,
         output_type=output_type,
         system_prompt=system_prompt,
     )
