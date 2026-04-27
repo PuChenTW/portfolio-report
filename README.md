@@ -7,7 +7,8 @@ An automated investment portfolio system that combines an MCP server for Claude,
 ## Features
 
 - **MCP Tools for Claude** — expose `get_portfolio_summary` and `get_price` tools so Claude can query your live portfolio directly
-- **Telegram Bot** — interact with your portfolio via slash commands (`/holdings`, `/watchlist`, `/alert`, `/research`, `/status`)
+- **Telegram Bot** — interact with your portfolio via slash commands (`/holdings`, `/watchlist`, `/alert`, `/research`, `/status`) and free-form multi-turn chat
+- **AI Chat Agent** — conversational assistant with access to live portfolio, watchlist, research history, and web search; conversation is persisted turn-by-turn so context survives session resets
 - **AI-Powered Research** — PydanticAI + Tavily search generates market news summaries and thesis updates
 - **Scheduled Workflows** — premarket briefings, daily P&L reports, midday US alerts, and weekly reviews run automatically
 - **Multi-Currency P&L** — tracks TWD and USD positions separately with no FX conversion, reporting totals per currency
@@ -19,7 +20,8 @@ An automated investment portfolio system that combines an MCP server for Claude,
 flowchart TD
   subgraph User-Triggered
     U([User]) --> B[Telegram Bot]
-    B --> H[Bot Commands]
+    B --> H[Slash Commands]
+    B --> FC[Free Chat Agent]
   end
 
   subgraph Scheduled
@@ -31,14 +33,19 @@ flowchart TD
     AI[/PydanticAI + Tavily/]
     YF[/yfinance/]
     TG>Telegram Delivery]
+    M[(Memory Files)]
   end
 
   H --> PC
   H --> TG
+  FC --> PC
+  FC --> AI
+  FC --> M
   W --> PC
   W --> AI
   W --> YF
   W --> TG
+  W --> M
 ```
 
 ## Quick Start
@@ -118,14 +125,25 @@ uv run --package researcher python -m researcher
 | `/alert` | `show [TICKER]` / `set TICKER above=X` / `set TICKER below=X` | View or configure price alert thresholds |
 | `/holdings` | `update TICKER SHARES COST` | Update a position in `portfolio.csv` |
 | `/research` | `[TW\|US]` (default US) | Trigger a premarket research run on demand |
+| `/newchat` | — | Reset the in-memory conversation thread (past exchanges remain in `CHAT-LOG.md`) |
 
 ### Free-form Chat
 
-Any non-command message is handled by a chat agent. It receives today's date and the last 2 entries from `RESEARCH-LOG.md` as context — it does **not** have access to live portfolio data or prices. Intent is classified into three paths:
+Any non-command message is handled by a multi-turn chat agent. Conversation history is maintained per-user in memory and every exchange is immediately appended to `CHAT-LOG.md`, so context is never lost across bot restarts or `/newchat` resets.
 
-- **command** — suggests the matching slash command (e.g. `/watchlist add AAPL`)
-- **research** — searches news via Tavily and returns a 3–5 sentence answer
-- **other** — polite conversational reply
+The agent has access to the following tools:
+
+| Tool | What it retrieves |
+|------|-------------------|
+| `get_portfolio` | Live holdings and performance summary |
+| `get_watchlist` | Current watchlist entries |
+| `read_chat_log` | Recent conversation history from `CHAT-LOG.md` |
+| `read_research_log` | Premarket / midday / weekly research notes |
+| `read_strategy` | Investment strategy document |
+| `save_note` | Saves an explicit insight to `RESEARCH-LOG.md` |
+| Web search | Live news via Tavily (requires `TAVILY_API_KEY`) |
+
+Use `/newchat` to start a fresh conversation thread. The agent can still recall past topics by calling `read_chat_log`.
 
 ## Memory System
 
@@ -133,10 +151,11 @@ The researcher accumulates context across runs using four append-only markdown f
 
 | File | Written by | Read by |
 |------|-----------|---------|
-| `INVESTMENT-STRATEGY.md` | You (manually) | Premarket — grounds research in your stated strategy |
-| `RESEARCH-LOG.md` | Premarket, Midday, Weekly Review | All agents — last 2–3 entries for rolling context |
+| `INVESTMENT-STRATEGY.md` | You (manually) | Premarket, Chat agent — grounds research in your stated strategy |
+| `RESEARCH-LOG.md` | Premarket, Midday, Weekly Review, Chat (`save_note`) | All agents — last 2–3 entries for rolling context |
 | `PORTFOLIO-LOG.md` | Daily Summary | Weekly Review — last 10 entries for performance context |
 | `WEEKLY-REVIEW.md` | Weekly Review | — |
+| `CHAT-LOG.md` | Chat agent (every turn) | Chat agent — `read_chat_log` tool for cross-session recall |
 
 All research workflows use PydanticAI with Tavily for live news search and exponential-backoff retry on failure.
 

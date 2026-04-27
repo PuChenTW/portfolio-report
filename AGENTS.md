@@ -21,6 +21,7 @@ Core modules:
 - `researcher/workflows/premarket.py`: pre-market research and alert delivery.
 - `researcher/workflows/midday.py`: US midday price alert and thesis check.
 - `researcher/workflows/weekly_review.py`: weekly portfolio reflection.
+- `researcher/handlers/chat.py`: free-form multi-turn chat — singleton PydanticAI agent with `get_portfolio`, `get_watchlist`, `read_chat_log`, `read_research_log`, `read_strategy`, and `save_note` tools; per-user history in `_sessions`; each exchange appended to `CHAT-LOG.md` immediately via `_append_chat_log`; `reset_chat_session` clears in-memory history only.
 - `researcher/memory/io.py`: read/append/query markdown memory files.
 - `researcher/interfaces/ports.py`: `Notifier`, `PortfolioReader`, and `MemoryReader` Protocol definitions — the DI contracts all workflows depend on.
 - `researcher/services/agent_runner.py`: `make_search_agent`, `run_agent_sync`, `run_agent_async` — single source for PydanticAI agent construction and exponential-backoff retry.
@@ -64,6 +65,6 @@ Follow the commit style already in history: `feat: ...`, `fix: ...`, `refactor: 
 
 ## Configuration & Secrets
 
-Use environment variables for runtime configuration: `PORTFOLIO_CSV_PATH`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `GOOGLE_API_KEY`, and `TAVILY_API_KEY`. Do not commit secrets or machine-specific `.env` files.
+Use environment variables for runtime configuration: `PORTFOLIO_CSV_PATH`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `GOOGLE_API_KEY`, and `TAVILY_API_KEY`. Optional: `CHAT_MODEL` overrides the model used by the free-chat agent (default `google-gla:gemini-3-flash-preview`). Do not commit secrets or machine-specific `.env` files.
 
 Keep local-only files out of git, including `.env`, `.mcp.json`, `.claude/`, and other machine-specific paths or settings.
