@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -5,7 +6,6 @@ import pytest
 from researcher.handlers.chat import (
     _sessions,
     handle_chat,
-    persist_session,
     reset_chat_session,
 )
 
@@ -19,15 +19,13 @@ def clear_sessions():
 
 def test_reset_clears_existing_history():
     _sessions[1] = [MagicMock()]
-    reply, history = reset_chat_session(1)
+    reply = reset_chat_session(1)
     assert 1 not in _sessions
-    assert len(history) == 1
     assert "重置" in reply
 
 
-def test_reset_with_no_session_returns_empty_history():
-    reply, history = reset_chat_session(999)
-    assert history == []
+def test_reset_with_no_session_does_not_raise():
+    reply = reset_chat_session(999)
     assert "重置" in reply
 
 
@@ -36,7 +34,7 @@ async def test_handle_chat_stores_history_after_reply():
     mock_result.output = "Hello back"
     mock_result.all_messages.return_value = [MagicMock()]
 
-    with patch("researcher.handlers.chat._get_agent") as mock_get_agent:
+    with patch("researcher.handlers.chat._get_agent") as mock_get_agent, patch("researcher.handlers.chat._append_chat_log"):
         mock_agent = MagicMock()
         mock_agent.run = AsyncMock(return_value=mock_result)
         mock_get_agent.return_value = mock_agent
@@ -56,7 +54,7 @@ async def test_handle_chat_passes_existing_history():
     mock_result.output = "Follow-up response"
     mock_result.all_messages.return_value = [existing_msg, MagicMock()]
 
-    with patch("researcher.handlers.chat._get_agent") as mock_get_agent:
+    with patch("researcher.handlers.chat._get_agent") as mock_get_agent, patch("researcher.handlers.chat._append_chat_log"):
         mock_agent = MagicMock()
         mock_agent.run = AsyncMock(return_value=mock_result)
         mock_get_agent.return_value = mock_agent
@@ -66,8 +64,23 @@ async def test_handle_chat_passes_existing_history():
         assert call_kwargs["message_history"] == [existing_msg]
 
 
-async def test_handle_chat_error_returns_fallback():
-    with patch("researcher.handlers.chat._get_agent") as mock_get_agent:
+async def test_handle_chat_appends_to_chat_log_each_turn():
+    mock_result = MagicMock()
+    mock_result.output = "Answer"
+    mock_result.all_messages.return_value = [MagicMock()]
+
+    with patch("researcher.handlers.chat._get_agent") as mock_get_agent, patch("researcher.handlers.chat._append_chat_log") as mock_log:
+        mock_agent = MagicMock()
+        mock_agent.run = AsyncMock(return_value=mock_result)
+        mock_get_agent.return_value = mock_agent
+
+        await handle_chat("Question", user_id=1)
+
+        mock_log.assert_called_once_with("Question", "Answer")
+
+
+async def test_handle_chat_error_returns_fallback_and_skips_log():
+    with patch("researcher.handlers.chat._get_agent") as mock_get_agent, patch("researcher.handlers.chat._append_chat_log") as mock_log:
         mock_agent = MagicMock()
         mock_agent.run = AsyncMock(side_effect=Exception("API error"))
         mock_get_agent.return_value = mock_agent
@@ -76,6 +89,7 @@ async def test_handle_chat_error_returns_fallback():
 
     assert "抱歉" in reply
     assert 1 not in _sessions
+    mock_log.assert_not_called()
 
 
 async def test_handle_chat_different_users_have_separate_history():
@@ -90,7 +104,7 @@ async def test_handle_chat_different_users_have_separate_history():
         result.all_messages.return_value = msgs_10 if call_count["n"] == 1 else msgs_20
         return result
 
-    with patch("researcher.handlers.chat._get_agent") as mock_get_agent:
+    with patch("researcher.handlers.chat._get_agent") as mock_get_agent, patch("researcher.handlers.chat._append_chat_log"):
         mock_agent = MagicMock()
         mock_agent.run = AsyncMock(side_effect=fake_run)
         mock_get_agent.return_value = mock_agent
@@ -103,37 +117,30 @@ async def test_handle_chat_different_users_have_separate_history():
     assert _sessions[10] is not _sessions[20]
 
 
-async def test_persist_session_skips_empty_history():
-    with patch("researcher.handlers.chat._get_agent") as mock_get_agent:
-        mock_agent = MagicMock()
-        mock_agent.run = AsyncMock()
-        mock_get_agent.return_value = mock_agent
+def test_append_chat_log_writes_exchange(tmp_path, monkeypatch):
+    from researcher.handlers import chat as chat_module
 
-        await persist_session([])
+    monkeypatch.setattr(chat_module, "_MEMORY_PATH", str(tmp_path))
 
-        mock_agent.run.assert_not_called()
+    chat_module._append_chat_log("TSLA 怎麼樣?", "TSLA 近期表現...")
 
-
-async def test_persist_session_calls_agent_with_history():
-    history = [MagicMock()]
-    mock_result = MagicMock()
-
-    with patch("researcher.handlers.chat._get_agent") as mock_get_agent:
-        mock_agent = MagicMock()
-        mock_agent.run = AsyncMock(return_value=mock_result)
-        mock_get_agent.return_value = mock_agent
-
-        await persist_session(history)
-
-        call_kwargs = mock_agent.run.call_args.kwargs
-        assert call_kwargs["message_history"] is history
+    log_path = tmp_path / "CHAT-LOG.md"
+    assert log_path.exists()
+    content = log_path.read_text()
+    assert "TSLA 怎麼樣?" in content
+    assert "TSLA 近期表現..." in content
+    assert "**User**:" in content
+    assert "**Bot**:" in content
 
 
-async def test_persist_session_swallows_errors():
-    with patch("researcher.handlers.chat._get_agent") as mock_get_agent:
-        mock_agent = MagicMock()
-        mock_agent.run = AsyncMock(side_effect=Exception("timeout"))
-        mock_get_agent.return_value = mock_agent
+def test_append_chat_log_accumulates_multiple_turns(tmp_path, monkeypatch):
+    from researcher.handlers import chat as chat_module
 
-        # should not raise
-        await persist_session([MagicMock()])
+    monkeypatch.setattr(chat_module, "_MEMORY_PATH", str(tmp_path))
+
+    chat_module._append_chat_log("第一問", "第一答")
+    chat_module._append_chat_log("第二問", "第二答")
+
+    content = (tmp_path / "CHAT-LOG.md").read_text()
+    assert "第一問" in content
+    assert "第二問" in content

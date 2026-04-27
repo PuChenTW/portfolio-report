@@ -16,6 +16,7 @@ from researcher.services.portfolio_service import PortfolioService
 _MEMORY_PATH = os.environ.get("RESEARCHER_MEMORY_PATH", "./memory")
 _WATCHLIST_PATH = os.environ.get("WATCHLIST_CSV_PATH", "./watchlist.csv")
 _DEFAULT_MODEL = "google-gla:gemini-3-flash-preview"
+_CHAT_LOG = "CHAT-LOG.md"
 
 # Per-user conversation history (in-memory; cleared on bot restart)
 _sessions: dict[int, list[ModelMessage]] = {}
@@ -37,7 +38,7 @@ def _make_agent() -> Agent[_ChatDeps, str]:
         deps_type=_ChatDeps,
         tools=tools,
         output_type=str,
-        system_prompt=("你是一位專業的投資研究助理，熟悉台灣、美國股市和加密貨幣。你可以使用工具存取用戶的投資組合、觀察名單和研究紀錄。請用台灣繁體中文回答，回答簡潔、有見地。"),
+        system_prompt=("你是一位專業的投資研究助理，熟悉台灣、美國股市和加密貨幣。你可以使用工具存取用戶的投資組合、觀察名單、研究紀錄和過去的對話紀錄。請用台灣繁體中文回答，回答簡潔、有見地。"),
     )
 
     @agent.tool
@@ -61,8 +62,14 @@ def _make_agent() -> Agent[_ChatDeps, str]:
             return f"無法取得觀察名單: {e}"
 
     @agent.tool
+    def read_chat_log(ctx: RunContext[_ChatDeps], n: int = 10) -> str:
+        """Read the last n exchanges from the conversation log to recall past discussions."""
+        path = os.path.join(ctx.deps.memory_path, _CHAT_LOG)
+        return last_n_entries(path, n) or "(無對話紀錄)"
+
+    @agent.tool
     def read_research_log(ctx: RunContext[_ChatDeps], n: int = 5) -> str:
-        """Read the last n entries from the research log."""
+        """Read the last n entries from the research log (premarket/midday/weekly notes)."""
         path = os.path.join(ctx.deps.memory_path, "RESEARCH-LOG.md")
         return last_n_entries(path, n) or "(無研究紀錄)"
 
@@ -74,7 +81,7 @@ def _make_agent() -> Agent[_ChatDeps, str]:
 
     @agent.tool
     def save_note(ctx: RunContext[_ChatDeps], content: str) -> str:
-        """Save a note or insight to the research log for long-term memory."""
+        """Save an explicit research insight or action item to the research log."""
         now = datetime.now(TZ_TAIPEI)
         entry = f"## {now.strftime('%Y-%m-%d')} Chat Note\n{content}"
         path = os.path.join(ctx.deps.memory_path, "RESEARCH-LOG.md")
@@ -101,6 +108,17 @@ def _make_deps() -> _ChatDeps:
     )
 
 
+def _append_chat_log(user_msg: str, bot_reply: str) -> None:
+    """Append a single exchange to CHAT-LOG.md immediately after each turn."""
+    now = datetime.now(TZ_TAIPEI)
+    entry = f"## {now.strftime('%Y-%m-%d %H:%M')}\n**User**: {user_msg}\n**Bot**: {bot_reply}"
+    path = os.path.join(_MEMORY_PATH, _CHAT_LOG)
+    try:
+        append_entry(path, entry)
+    except Exception as e:
+        print(f"[warn] chat log write failed: {e}", file=sys.stderr)
+
+
 async def handle_chat(message: str, user_id: int) -> str:
     """Handle a free-form chat message with per-user multi-turn history."""
     agent = _get_agent()
@@ -108,28 +126,15 @@ async def handle_chat(message: str, user_id: int) -> str:
     try:
         result = await agent.run(message, deps=_make_deps(), message_history=history)
         _sessions[user_id] = result.all_messages()
-        return result.output
+        reply = result.output
+        _append_chat_log(message, reply)
+        return reply
     except Exception as e:
         print(f"[warn] chat failed for user {user_id}: {e}", file=sys.stderr)
         return "抱歉，目前無法處理您的訊息，請稍後再試。"
 
 
-def reset_chat_session(user_id: int) -> tuple[str, list[ModelMessage]]:
-    """Clear the conversation history and return the snapshot for async persistence."""
-    history = _sessions.pop(user_id, [])
-    return "對話已重置，開始新的對話。", history
-
-
-async def persist_session(history: list[ModelMessage]) -> None:
-    """Summarize and save a session snapshot to the research log (fire-and-forget)."""
-    if not history:
-        return
-    agent = _get_agent()
-    try:
-        await agent.run(
-            "請將以上對話的重點摘要，包括討論的標的、重要洞見與行動項目（條列式，100字以內），然後使用 save_note 工具儲存摘要。",
-            deps=_make_deps(),
-            message_history=history,
-        )
-    except Exception as e:
-        print(f"[warn] session persist failed: {e}", file=sys.stderr)
+def reset_chat_session(user_id: int) -> str:
+    """Clear the in-memory conversation history for a user."""
+    _sessions.pop(user_id, None)
+    return "對話已重置，開始新的對話。"
