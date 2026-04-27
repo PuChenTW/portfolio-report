@@ -118,11 +118,12 @@ async def test_handle_chat_different_users_have_separate_history():
 
 
 def test_append_chat_log_writes_exchange(tmp_path, monkeypatch):
-    from researcher.handlers import chat as chat_module
+    from researcher.config import settings
+    from researcher.handlers.chat import _append_chat_log
 
-    monkeypatch.setattr(chat_module, "_MEMORY_PATH", str(tmp_path))
+    monkeypatch.setattr(settings, "researcher_memory_path", str(tmp_path))
 
-    chat_module._append_chat_log("TSLA 怎麼樣?", "TSLA 近期表現...")
+    _append_chat_log("TSLA 怎麼樣?", "TSLA 近期表現...")
 
     log_path = tmp_path / "CHAT-LOG.md"
     assert log_path.exists()
@@ -134,12 +135,13 @@ def test_append_chat_log_writes_exchange(tmp_path, monkeypatch):
 
 
 def test_append_chat_log_accumulates_multiple_turns(tmp_path, monkeypatch):
-    from researcher.handlers import chat as chat_module
+    from researcher.config import settings
+    from researcher.handlers.chat import _append_chat_log
 
-    monkeypatch.setattr(chat_module, "_MEMORY_PATH", str(tmp_path))
+    monkeypatch.setattr(settings, "researcher_memory_path", str(tmp_path))
 
-    chat_module._append_chat_log("第一問", "第一答")
-    chat_module._append_chat_log("第二問", "第二答")
+    _append_chat_log("第一問", "第一答")
+    _append_chat_log("第二問", "第二答")
 
     content = (tmp_path / "CHAT-LOG.md").read_text()
     assert "第一問" in content

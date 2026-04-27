@@ -10,12 +10,10 @@ from pydantic_ai.messages import ModelMessage
 
 from portfolio.portfolio import TZ_TAIPEI
 from portfolio.watchlist import load_watchlist
+from researcher.config import settings
 from researcher.memory.io import append_entry, last_n_entries, read_file
 from researcher.services.portfolio_service import PortfolioService
 
-_MEMORY_PATH = os.environ.get("RESEARCHER_MEMORY_PATH", "./memory")
-_WATCHLIST_PATH = os.environ.get("WATCHLIST_CSV_PATH", "./watchlist.csv")
-_DEFAULT_MODEL = "google-gla:gemini-3-flash-preview"
 _CHAT_LOG = "CHAT-LOG.md"
 
 # Per-user conversation history (in-memory; cleared on bot restart)
@@ -29,12 +27,10 @@ class _ChatDeps:
 
 
 def _make_agent() -> Agent[_ChatDeps, str]:
-    api_key = os.environ.get("TAVILY_API_KEY", "")
-    model = os.environ.get("CHAT_MODEL", _DEFAULT_MODEL)
-    tools = [tavily_search_tool(api_key)] if api_key else []
+    tools = [tavily_search_tool(settings.tavily_api_key)] if settings.tavily_api_key else []
 
     agent: Agent[_ChatDeps, str] = Agent(
-        model,
+        settings.chat_model,
         deps_type=_ChatDeps,
         tools=tools,
         output_type=str,
@@ -103,8 +99,8 @@ def _get_agent() -> Agent[_ChatDeps, str]:
 
 def _make_deps() -> _ChatDeps:
     return _ChatDeps(
-        memory_path=_MEMORY_PATH,
-        watchlist_path=_WATCHLIST_PATH,
+        memory_path=settings.researcher_memory_path,
+        watchlist_path=settings.watchlist_csv_path,
     )
 
 
@@ -112,7 +108,7 @@ def _append_chat_log(user_msg: str, bot_reply: str) -> None:
     """Append a single exchange to CHAT-LOG.md immediately after each turn."""
     now = datetime.now(TZ_TAIPEI)
     entry = f"## {now.strftime('%Y-%m-%d %H:%M')}\n**User**: {user_msg}\n**Bot**: {bot_reply}"
-    path = os.path.join(_MEMORY_PATH, _CHAT_LOG)
+    path = os.path.join(settings.researcher_memory_path, _CHAT_LOG)
     try:
         append_entry(path, entry)
     except Exception as e:

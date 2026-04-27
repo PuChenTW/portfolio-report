@@ -1,6 +1,6 @@
 import asyncio
-import os
 from typing import Any
+
 from telegram import BotCommand, Update
 from telegram.ext import (
     Application,
@@ -10,6 +10,7 @@ from telegram.ext import (
     ContextTypes,
 )
 
+from researcher.config import settings
 from researcher.handlers.commands import (
     handle_watchlist,
     handle_alert,
@@ -20,19 +21,16 @@ from researcher.handlers.chat import handle_chat, reset_chat_session
 from researcher.services.workflow_deps import make_deps
 from researcher.workflows import premarket
 
-_WATCHLIST_PATH = os.environ.get("WATCHLIST_CSV_PATH", "./watchlist.csv")
-_ALERTS_PATH = os.environ.get("PRICE_ALERTS_PATH", "./price-alerts.yml")
-
 
 async def _cmd_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     args = context.args or []
-    reply = handle_watchlist(list(args), watchlist_path=_WATCHLIST_PATH)
+    reply = handle_watchlist(list(args), watchlist_path=settings.watchlist_csv_path)
     await update.message.reply_text(reply)  # type: ignore[union-attr]
 
 
 async def _cmd_alert(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     args = context.args or []
-    reply = handle_alert(list(args), alerts_path=_ALERTS_PATH)
+    reply = handle_alert(list(args), alerts_path=settings.price_alerts_path)
     await update.message.reply_text(reply)  # type: ignore[union-attr]
 
 
@@ -84,8 +82,7 @@ COMMANDS = [BotCommand(name, desc) for name, desc, _ in _COMMAND_REGISTRY]
 
 
 def create_application() -> Application:
-    token = os.environ["TELEGRAM_BOT_TOKEN"]
-    app = Application.builder().token(token).build()
+    app = Application.builder().token(settings.telegram_bot_token).build()
     for name, _, handler in _COMMAND_REGISTRY:
         app.add_handler(CommandHandler(name, handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _on_text))
