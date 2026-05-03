@@ -11,6 +11,8 @@ from researcher.config import settings
 from researcher.services.agent_runner import make_search_agent, run_agent_sync
 from researcher.services.workflow_deps import WorkflowDeps
 
+_CURRENCY = {"TW": "TWD", "US": "USD"}
+
 
 class _ThesisCheck(BaseModel):
     ticker: str
@@ -19,26 +21,27 @@ class _ThesisCheck(BaseModel):
     recommendation: str
 
 
-def run(deps: WorkflowDeps) -> None:
-    """US midday scan: check price alerts and verify thesis for volatile positions."""
+def run(market: str, deps: WorkflowDeps) -> None:
+    """Midday scan: check price alerts and verify thesis for volatile positions."""
     now = datetime.now(TZ_TAIPEI)
     date_str = now.strftime("%Y-%m-%d")
-    print(f"[{now.isoformat()}] midday.run()")
+    print(f"[{now.isoformat()}] midday.run({market})")
 
     assert deps.portfolio is not None, "midday requires a PortfolioReader"
 
+    currency = _CURRENCY[market]
     summary = deps.portfolio.fetch_summary()
     positions = [p for p in summary["positions"] if not p.get("is_cash")]
-    us_positions = [p for p in positions if p["currency"] == "USD"]
+    market_positions = [p for p in positions if p["currency"] == currency]
 
     rules = load_alerts(settings.price_alerts_path)
-    price_alerts = check_positions(us_positions, rules)
+    price_alerts = check_positions(market_positions, rules)
 
-    tickers = [p["ticker"] for p in us_positions]
+    tickers = [p["ticker"] for p in market_positions]
     volatile: list[dict] = []
     if tickers:
         data = yf.Tickers(" ".join(tickers))
-        for p in us_positions:
+        for p in market_positions:
             try:
                 open_price = float(data.tickers[p["ticker"]].fast_info["open"])
                 current = p["current_price"]
@@ -48,7 +51,7 @@ def run(deps: WorkflowDeps) -> None:
                 pass
 
     if not price_alerts and not volatile:
-        print("[midday] No alerts triggered.")
+        print(f"[midday/{market}] No alerts triggered.")
         return
 
     flagged = list({a.ticker for a in price_alerts} | {v["ticker"] for v in volatile})
@@ -72,7 +75,7 @@ def run(deps: WorkflowDeps) -> None:
             check.ticker = ticker
             checks.append(check)
 
-    log_lines = [f"## {date_str} US Midday Scan"]
+    log_lines = [f"## {date_str} {market} Midday Scan"]
     if price_alerts:
         log_lines.append("### Price Alerts")
         for a in price_alerts:
