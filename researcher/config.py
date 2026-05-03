@@ -24,6 +24,7 @@ class Settings(BaseSettings):
 
     # Models
     chat_model: str = "google-gla:gemini-3-flash-preview"
+    research_model: str = "google-gla:gemini-3-pro-preview"
 
 
 settings = Settings()

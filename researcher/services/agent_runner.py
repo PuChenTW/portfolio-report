@@ -11,13 +11,13 @@ from researcher.config import settings
 
 T = TypeVar("T", bound=BaseModel)
 
-_DEFAULT_MODEL = "google-gla:gemini-3-flash-preview"
+_RESEARCH_MODEL = settings.research_model
 
 
 def make_search_agent(
     output_type: type[T],
     system_prompt: str,
-    model: str = _DEFAULT_MODEL,
+    model: str = _RESEARCH_MODEL,
 ) -> Agent[None, T]:
     """Construct a PydanticAI Agent with Tavily search tool."""
     tools = [tavily_search_tool(settings.tavily_api_key)] if settings.tavily_api_key else []
