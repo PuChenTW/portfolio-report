@@ -1,5 +1,6 @@
 from typing import cast
 from unittest.mock import MagicMock, patch
+from portfolio.alerts import PriceAlert
 from researcher.workflows.midday import run
 from researcher.services.workflow_deps import WorkflowDeps
 
@@ -54,13 +55,16 @@ def test_log_header_uses_market_name():
         {"ticker": "2330.TW", "currency": "TWD", "is_cash": False, "current_price": 100.0},
     ]
     deps = _make_deps(positions)
+    fake_alert = PriceAlert(ticker="2330.TW", kind="above", threshold_price=95.0, current_price=100.0)
     with patch("researcher.workflows.midday.yf.Tickers") as mock_tickers, \
          patch("researcher.workflows.midday.load_alerts", return_value=[]), \
-         patch("researcher.workflows.midday.check_positions", return_value=[]):
+         patch("researcher.workflows.midday.check_positions", return_value=[fake_alert]), \
+         patch("researcher.workflows.midday.make_search_agent", return_value=MagicMock()), \
+         patch("researcher.workflows.midday.run_agent_sync", return_value=None):
         mock_tickers.return_value.tickers = {}
         run("TW", deps)
     memory_mock = cast(MagicMock, deps.memory)
     appended = memory_mock.append_entry.call_args
-    if appended:
-        log_text = appended[0][1]
-        assert "TW Midday Scan" in log_text
+    assert appended is not None
+    log_text = appended[0][1]
+    assert "TW Midday Scan" in log_text
