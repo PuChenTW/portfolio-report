@@ -482,7 +482,7 @@ def test_send_telegram_messages_api_error(monkeypatch):
         url="",
         code=400,
         msg="Bad Request",
-        hdrs=None,
+        hdrs=None,  # type: ignore
         fp=None,  # type: ignore
     )
     error.read = lambda n=-1: b"Bad Request"
@@ -503,7 +503,7 @@ def test_send_telegram_file_api_error(monkeypatch):
         url="",
         code=400,
         msg="Bad Request",
-        hdrs=None,
+        hdrs=None,  # type: ignore
         fp=None,  # type: ignore
     )
     error.read = lambda n=-1: b"Bad Request"

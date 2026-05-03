@@ -29,6 +29,15 @@ def make_search_agent(
     )
 
 
+def make_analysis_agent(
+    output_type: type[T],
+    system_prompt: str,
+    model: str = _RESEARCH_MODEL,
+) -> Agent[None, T]:
+    """Construct a PydanticAI Agent with no external tools (local-data analysis only)."""
+    return Agent(model, output_type=output_type, system_prompt=system_prompt)
+
+
 def run_agent_sync(
     agent: Agent[None, T],
     prompt: str,

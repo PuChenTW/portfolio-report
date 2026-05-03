@@ -4,7 +4,7 @@ from datetime import datetime
 from portfolio.report import format_telegram_messages
 
 from researcher.pipeline.data import TZ_TAIPEI, _fmt_today
-from researcher.pipeline.news import _NEWS_DEFAULTS, search_news
+from researcher.pipeline.news import _NEWS_DEFAULTS, generate_close_insight, search_news
 from researcher.services.workflow_deps import WorkflowDeps
 
 
@@ -21,7 +21,29 @@ def run(market: str, deps: WorkflowDeps) -> None:
     if errors:
         print(f"[warn] Price fetch errors: {errors}", file=sys.stderr)
 
-    news = search_news(us_holdings, tw_holdings, crypto_holdings, summary=data["summary"])
+    research_path = deps.memory.resolve("RESEARCH-LOG.md")
+    research_entries = deps.memory.last_n_entries(research_path, 6)
+    date_str = datetime.now(TZ_TAIPEI).strftime("%Y-%m-%d")
+    has_today_research = bool(
+        research_entries
+        and date_str in research_entries
+        and market in research_entries
+        and ("Pre-market" in research_entries or "Midday Scan" in research_entries)
+    )
+
+    if has_today_research:
+        news = generate_close_insight(
+            us_holdings, tw_holdings, crypto_holdings,
+            summary=data["summary"],
+            research_entries=research_entries,
+            market=market,
+        )
+    else:
+        print(
+            f"[warn] No today's research for {market} in RESEARCH-LOG.md; falling back to search_news()",
+            file=sys.stderr,
+        )
+        news = search_news(us_holdings, tw_holdings, crypto_holdings, summary=data["summary"])
 
     tw_notes: dict = news.get("tw_notes", {})
     for h in tw_holdings:
@@ -56,3 +78,16 @@ def run(market: str, deps: WorkflowDeps) -> None:
     snapshot_lines = [f"## {today} {market} Close"]
     snapshot_lines.append(f"TWD: {totals['tw_total']} {tw_change_str} | USD: {totals['us_total']} {us_change_str} | Crypto: {totals['crypto_total']} {crypto_change_str}")
     deps.memory.append_entry(deps.memory.resolve("PORTFOLIO-LOG.md"), "\n".join(snapshot_lines))
+
+    close_lines = [f"## {date_str} {market} Close Insight"]
+    for row in news.get("macro_rows", []):
+        close_lines.append(f"• {row}")
+    close_lines.append(f"US Event: {news.get('us_event', '')}")
+    for row in news.get("tip_rows", []):
+        close_lines.append(f"→ {row}")
+    tw_notes_out = news.get("tw_notes", {})
+    if tw_notes_out:
+        close_lines.append("TW Notes:")
+        for ticker, note in tw_notes_out.items():
+            close_lines.append(f"  {ticker}: {note}")
+    deps.memory.append_entry(research_path, "\n".join(close_lines))
