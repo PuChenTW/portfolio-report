@@ -11,7 +11,7 @@ from researcher.config import settings
 from researcher.services.agent_runner import make_search_agent, run_agent_sync
 from researcher.services.workflow_deps import WorkflowDeps
 
-_CURRENCY = {"TW": "TWD", "US": "USD"}
+_CURRENCY: dict[str, str] = {"TW": "TWD", "US": "USD"}
 
 
 class _ThesisCheck(BaseModel):
@@ -29,7 +29,9 @@ def run(market: str, deps: WorkflowDeps) -> None:
 
     assert deps.portfolio is not None, "midday requires a PortfolioReader"
 
-    currency = _CURRENCY[market]
+    currency = _CURRENCY.get(market)
+    if currency is None:
+        raise ValueError(f"midday.run: unknown market {market!r}. Expected one of {list(_CURRENCY)}")
     summary = deps.portfolio.fetch_summary()
     positions = [p for p in summary["positions"] if not p.get("is_cash")]
     market_positions = [p for p in positions if p["currency"] == currency]
