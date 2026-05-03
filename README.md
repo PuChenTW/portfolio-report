@@ -109,7 +109,7 @@ uv run --package researcher python -m researcher
 |----------|----------|--------------|-----------------|
 | TW Premarket | Weekdays 08:30 Asia/Taipei | Reads investment strategy + last 3 research log entries; searches macro indicators and per-ticker news via Tavily; classifies alert tickers | Only if alert tickers found |
 | US Premarket | Weekdays 08:30 America/New_York | Same as TW Premarket, filtered to USD positions and US watchlist | Only if alert tickers found |
-| TW Daily Summary | Weekdays 13:35 Asia/Taipei | Batch-fetches current prices and day P&L; runs AI news pipeline (macro, Taiwan equities, crypto); formats and sends full portfolio report | Always |
+| TW Daily Summary | Weekdays 13:35 Asia/Taipei | Batch-fetches current prices and day P&L; reads today's pre-market and midday research from `RESEARCH-LOG.md`; uses AI to cross-reference forecasts with actual close prices; formats and sends full portfolio report; appends `Close Insight` to `RESEARCH-LOG.md` | Always |
 | US Midday | Weekdays 13:00 America/New_York | Loads `price-alerts.yml`; checks threshold breaches and >2% intraday moves; runs per-ticker AI thesis check if triggered | Only if price alert or thesis broken |
 | US Daily Summary | Weekdays 16:00 America/New_York | Same as TW Daily Summary, filtered to US and crypto positions | Always |
 | Weekly Review | Saturdays 10:00 Asia/Taipei | Reads last 10 entries from portfolio + research logs; fetches SPY and 0050.TW benchmark returns; generates weekly reflection via AI | Always |
@@ -152,12 +152,12 @@ The researcher accumulates context across runs using four append-only markdown f
 | File | Written by | Read by |
 |------|-----------|---------|
 | `INVESTMENT-STRATEGY.md` | You (manually) | Premarket, Chat agent — grounds research in your stated strategy |
-| `RESEARCH-LOG.md` | Premarket, Midday, Weekly Review, Chat (`save_note`) | All agents — last 2–3 entries for rolling context |
+| `RESEARCH-LOG.md` | Premarket, Midday, Daily Summary (`Close Insight`), Weekly Review, Chat (`save_note`) | All agents — last 2–3 entries for rolling context |
 | `PORTFOLIO-LOG.md` | Daily Summary | Weekly Review — last 10 entries for performance context |
 | `WEEKLY-REVIEW.md` | Weekly Review | — |
 | `CHAT-LOG.md` | Chat agent (every turn) | Chat agent — `read_chat_log` tool for cross-session recall |
 
-All research workflows use PydanticAI with Tavily for live news search and exponential-backoff retry on failure.
+Premarket and midday workflows use PydanticAI with Tavily for live news search. The daily close summary uses a no-Tavily analysis agent to cross-reference the day's research log with actual close prices. All agents use exponential-backoff retry on failure.
 
 ## Tech Stack
 
