@@ -1,5 +1,5 @@
+from typing import cast
 from unittest.mock import MagicMock, patch
-import pytest
 from researcher.workflows.midday import run
 from researcher.services.workflow_deps import WorkflowDeps
 
@@ -59,7 +59,8 @@ def test_log_header_uses_market_name():
          patch("researcher.workflows.midday.check_positions", return_value=[]):
         mock_tickers.return_value.tickers = {}
         run("TW", deps)
-    appended = deps.memory.append_entry.call_args
+    memory_mock = cast(MagicMock, deps.memory)
+    appended = memory_mock.append_entry.call_args
     if appended:
         log_text = appended[0][1]
         assert "TW Midday Scan" in log_text
