@@ -46,6 +46,11 @@ def create_scheduler() -> AsyncIOScheduler:
         misfire_grace_time=60,
     )
     scheduler.add_job(
+        _wrap(midday.run, "TW", deps),
+        CronTrigger(day_of_week="mon-fri", hour=11, minute=30, timezone=_TZ_TW),
+        misfire_grace_time=60,
+    )
+    scheduler.add_job(
         _wrap(daily_summary.run, "TW", deps),
         CronTrigger(day_of_week="mon-fri", hour=13, minute=35, timezone=_TZ_TW),
         misfire_grace_time=60,
@@ -58,7 +63,7 @@ def create_scheduler() -> AsyncIOScheduler:
         misfire_grace_time=60,
     )
     scheduler.add_job(
-        _wrap(midday.run, deps),
+        _wrap(midday.run, "US", deps),
         CronTrigger(day_of_week="mon-fri", hour=13, minute=0, timezone=_TZ_US),
         misfire_grace_time=60,
     )
