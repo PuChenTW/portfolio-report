@@ -4,7 +4,7 @@ from datetime import datetime
 from portfolio.report import format_telegram_messages
 
 from researcher.pipeline.data import TZ_TAIPEI, _fmt_today
-from researcher.pipeline.news import _NEWS_DEFAULTS, run_claude_news
+from researcher.pipeline.news import _NEWS_DEFAULTS, search_news
 from researcher.services.workflow_deps import WorkflowDeps
 
 
@@ -21,7 +21,7 @@ def run(market: str, deps: WorkflowDeps) -> None:
     if errors:
         print(f"[warn] Price fetch errors: {errors}", file=sys.stderr)
 
-    news = run_claude_news(us_holdings, tw_holdings, crypto_holdings, totals, summary=data["summary"])
+    news = search_news(us_holdings, tw_holdings, crypto_holdings, summary=data["summary"])
 
     tw_notes: dict = news.get("tw_notes", {})
     for h in tw_holdings:

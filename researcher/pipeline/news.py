@@ -122,11 +122,10 @@ def _build_portfolio_context(
     }
 
 
-def run_claude_news(
+def search_news(
     us_holdings: list[USHolding],
     tw_holdings: list[TWHolding],
     crypto_holdings: list[CryptoHolding],
-    _totals: dict,
     summary: dict | None = None,
 ) -> dict:
     now = datetime.now(TZ_TAIPEI)
