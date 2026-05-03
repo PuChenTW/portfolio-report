@@ -23,9 +23,11 @@ def test_tw_market_filters_twd_positions():
         {"ticker": "AAPL", "currency": "USD", "is_cash": False, "current_price": 200.0},
     ]
     deps = _make_deps(positions)
-    with patch("researcher.workflows.midday.yf.Tickers") as mock_tickers, \
-         patch("researcher.workflows.midday.load_alerts", return_value=[]), \
-         patch("researcher.workflows.midday.check_positions", return_value=[]):
+    with (
+        patch("researcher.workflows.midday.yf.Tickers") as mock_tickers,
+        patch("researcher.workflows.midday.load_alerts", return_value=[]),
+        patch("researcher.workflows.midday.check_positions", return_value=[]),
+    ):
         mock_tickers.return_value.tickers = {}
         run("TW", deps)
     # Should only pass TWD tickers to yf.Tickers
@@ -40,9 +42,11 @@ def test_us_market_filters_usd_positions():
         {"ticker": "AAPL", "currency": "USD", "is_cash": False, "current_price": 200.0},
     ]
     deps = _make_deps(positions)
-    with patch("researcher.workflows.midday.yf.Tickers") as mock_tickers, \
-         patch("researcher.workflows.midday.load_alerts", return_value=[]), \
-         patch("researcher.workflows.midday.check_positions", return_value=[]):
+    with (
+        patch("researcher.workflows.midday.yf.Tickers") as mock_tickers,
+        patch("researcher.workflows.midday.load_alerts", return_value=[]),
+        patch("researcher.workflows.midday.check_positions", return_value=[]),
+    ):
         mock_tickers.return_value.tickers = {}
         run("US", deps)
     call_args = mock_tickers.call_args[0][0]
@@ -56,11 +60,13 @@ def test_log_header_uses_market_name():
     ]
     deps = _make_deps(positions)
     fake_alert = PriceAlert(ticker="2330.TW", kind="above", threshold_price=95.0, current_price=100.0)
-    with patch("researcher.workflows.midday.yf.Tickers") as mock_tickers, \
-         patch("researcher.workflows.midday.load_alerts", return_value=[]), \
-         patch("researcher.workflows.midday.check_positions", return_value=[fake_alert]), \
-         patch("researcher.workflows.midday.make_search_agent", return_value=MagicMock()), \
-         patch("researcher.workflows.midday.run_agent_sync", return_value=None):
+    with (
+        patch("researcher.workflows.midday.yf.Tickers") as mock_tickers,
+        patch("researcher.workflows.midday.load_alerts", return_value=[]),
+        patch("researcher.workflows.midday.check_positions", return_value=[fake_alert]),
+        patch("researcher.workflows.midday.make_search_agent", return_value=MagicMock()),
+        patch("researcher.workflows.midday.run_agent_sync", return_value=None),
+    ):
         mock_tickers.return_value.tickers = {}
         run("TW", deps)
     memory_mock = cast(MagicMock, deps.memory)

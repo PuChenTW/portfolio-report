@@ -66,7 +66,7 @@ async def _on_text(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
         reply = await handle_chat(update.message.text.strip(), user_id)
     except Exception as e:
         reply = f"❌ Error: {e}"
-    await update.message.reply_text(reply)
+    await update.message.reply_text(reply, parse_mode="HTML")
 
 
 _COMMAND_REGISTRY: list[tuple[str, str, Any]] = [

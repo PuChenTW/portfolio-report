@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import sys
 from dataclasses import dataclass
 from datetime import datetime
@@ -15,6 +16,20 @@ from researcher.memory.io import append_entry, last_n_entries, read_file
 from researcher.services.portfolio_service import PortfolioService
 
 _CHAT_LOG = "CHAT-LOG.md"
+
+
+def _to_telegram_html(text: str) -> str:
+    text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    text = re.sub(r"```(?:\w+)?\n?(.*?)```", r"<pre><code>\1</code></pre>", text, flags=re.DOTALL)
+    text = re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
+    text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
+    text = re.sub(r"__(.+?)__", r"<b>\1</b>", text)
+    text = re.sub(r"\*([^*\n]+)\*", r"<i>\1</i>", text)
+    text = re.sub(r"(?<!\w)_([^_\n]+)_(?!\w)", r"<i>\1</i>", text)
+    text = re.sub(r"^#{1,6}\s+(.+)$", r"<b>\1</b>", text, flags=re.MULTILINE)
+    text = re.sub(r"^---+$", "", text, flags=re.MULTILINE)
+    return text.strip()
+
 
 # Per-user conversation history (in-memory; cleared on bot restart)
 _sessions: dict[int, list[ModelMessage]] = {}
@@ -34,7 +49,9 @@ def _make_agent() -> Agent[_ChatDeps, str]:
         deps_type=_ChatDeps,
         tools=tools,
         output_type=str,
-        system_prompt=("你是一位專業的投資研究助理，熟悉台灣、美國股市和加密貨幣。你可以使用工具存取用戶的投資組合、觀察名單、研究紀錄和過去的對話紀錄。請用台灣繁體中文回答，回答簡潔、有見地。"),
+        system_prompt=(
+            "你是一位專業的投資研究助理，熟悉台灣、美國股市和加密貨幣。你可以使用工具存取用戶的投資組合、觀察名單、研究紀錄和過去的對話紀錄，也可以搜尋網路取得最新市場資訊。請用台灣繁體中文回答，回答簡潔、有見地。"
+        ),
     )
 
     @agent.tool
@@ -122,7 +139,7 @@ async def handle_chat(message: str, user_id: int) -> str:
     try:
         result = await agent.run(message, deps=_make_deps(), message_history=history)
         _sessions[user_id] = result.all_messages()
-        reply = result.output
+        reply = _to_telegram_html(result.output)
         _append_chat_log(message, reply)
         return reply
     except Exception as e:
