@@ -12,38 +12,22 @@ from telegram.ext import (
 
 from researcher.config import settings
 from researcher.handlers.commands import (
-    handle_watchlist,
-    handle_alert,
     handle_holdings,
-    handle_update_holding,
     handle_status,
 )
 from researcher.handlers.chat import handle_chat, reset_chat_session
+from researcher.handlers.interactive import (
+    build_alert_conversation,
+    build_update_conversation,
+    build_watchlist_conversation,
+)
 from researcher.services.workflow_deps import make_deps
 from researcher.workflows import premarket
-
-
-async def _cmd_watchlist(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    args = context.args or []
-    reply = handle_watchlist(list(args), watchlist_path=settings.watchlist_csv_path)
-    await update.message.reply_text(reply)  # type: ignore[union-attr]
-
-
-async def _cmd_alert(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    args = context.args or []
-    reply = handle_alert(list(args), alerts_path=settings.price_alerts_path)
-    await update.message.reply_text(reply)  # type: ignore[union-attr]
 
 
 async def _cmd_holdings(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
     reply = handle_holdings()
     await update.message.reply_text(reply, parse_mode="HTML")  # type: ignore[union-attr]
-
-
-async def _cmd_update(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    args = context.args or []
-    reply = handle_update_holding(list(args))
-    await update.message.reply_text(reply)  # type: ignore[union-attr]
 
 
 async def _cmd_status(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -77,20 +61,31 @@ async def _on_text(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
 
 _COMMAND_REGISTRY: list[tuple[str, str, Any]] = [
     ("status", "Check agent status", _cmd_status),
-    ("watchlist", "Manage watchlist: add/remove/list", _cmd_watchlist),
-    ("alert", "Manage price alerts: set/show", _cmd_alert),
     ("holdings", "Show all positions with live price and P&L", _cmd_holdings),
-    ("update", "Update a position: TICKER SHARES COST", _cmd_update),
     ("research", "Trigger pre-market research: [TW|US]", _cmd_research),
     ("newchat", "Reset the current conversation session", _cmd_newchat),
 ]
 
-COMMANDS = [BotCommand(name, desc) for name, desc, _ in _COMMAND_REGISTRY]
+COMMANDS = [BotCommand(name, desc) for name, desc, _ in _COMMAND_REGISTRY] + [
+    BotCommand("watchlist", "Manage watchlist (interactive)"),
+    BotCommand("alert", "Set price alerts (interactive)"),
+    BotCommand("update", "Update a position (interactive)"),
+    BotCommand("cancel", "Cancel current interactive operation"),
+]
 
 
 def create_application() -> Application:
     app = Application.builder().token(settings.telegram_bot_token).build()
+
+    # Interactive conversation flows — must be registered before the catch-all MessageHandler
+    app.add_handler(build_watchlist_conversation())
+    app.add_handler(build_alert_conversation())
+    app.add_handler(build_update_conversation())
+
     for name, _, handler in _COMMAND_REGISTRY:
         app.add_handler(CommandHandler(name, handler))
+
+    # Catch-all free-text chat (lowest priority — added last)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _on_text))
+
     return app

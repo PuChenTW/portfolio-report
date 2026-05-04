@@ -66,64 +66,81 @@ def handle_alert(args: list[str], alerts_path: str = settings.price_alerts_path)
     return "Usage: /alert [set TICKER above=X | set TICKER below=X | show [TICKER]]"
 
 
-def handle_holdings(args: list[str] = []) -> str:
+def _holdings_table(rows: list[tuple[str, str, str, str, str, str]]) -> str:
+    """Render a fixed-width monospace table for Telegram <pre> blocks.
+
+    Each row is (ticker, shares, price, cost, total, pnl).
+    """
+    header = ("Ticker", "股數", "現價", "成本", "市值", "損益")
+    col_widths = [max(len(h), max(len(r[i]) for r in rows)) for i, h in enumerate(header)]
+
+    def fmt_row(cells: tuple[str, ...]) -> str:
+        return "  ".join(c.ljust(col_widths[i]) for i, c in enumerate(cells))
+
+    sep = "  ".join("-" * w for w in col_widths)
+    table_rows = [fmt_row(header), sep] + [fmt_row(r) for r in rows]
+    return "\n".join(table_rows)
+
+
+def handle_holdings() -> str:
     data = fetch_portfolio()
     positions = data["summary"]["positions"]
-    prev_closes = data["prev_closes"]
+    fx_rate: float | None = data["summary"].get("fx_rate")
 
-    sections: dict[str, list[str]] = {"台股": [], "美股 / ETF": [], "加密貨幣": [], "現金": []}
+    sections: dict[str, list[tuple[str, str, str, str, str, str]]] = {"台股": [], "美股 / ETF": [], "加密貨幣": [], "現金": []}
     section_value: dict[str, float] = {"台股": 0.0, "美股 / ETF": 0.0, "加密貨幣": 0.0, "現金": 0.0}
 
     for p in positions:
         ticker = p["ticker"]
-        current = p["current_price"]
+        display_ticker = ticker.replace("-USD", "").replace(".TW", "")
 
         if p.get("is_cash"):
             val_str = _fmt_twd(p["current_value"]) if p["currency"] == "TWD" else _fmt_usd(p["current_value"])
-            sections["現金"].append(
-                f"<b>{p['name']}</b>  <code>{val_str}</code>"
-            )
+            sections["現金"].append((p["name"], "—", val_str, "—", "—", "—"))
             continue
 
-        prev = prev_closes.get(ticker)
-        if prev and prev > 0:
-            day_pct = (current - prev) / prev * 100
-            day_arrow = "▲" if day_pct >= 0 else "▼"
-            day_str = f"{day_arrow}{abs(day_pct):.2f}%"
-        else:
-            day_str = "—"
-
+        current = p["current_price"]
+        shares = p["shares"]
+        cost = p["cost_price"]
+        total_value = p["current_value"]
+        gl = p["gain_loss"]
         gl_pct = p["gain_loss_pct"]
         gl_arrow = "▲" if gl_pct >= 0 else "▼"
-        gl_str = f"{gl_arrow}{abs(gl_pct):.2f}%"
-
-        display_ticker = ticker.replace("-USD", "").replace(".TW", "")
+        gl_sign = "+" if gl >= 0 else ""
 
         if p["currency"] == "TWD":
             section = "台股"
+            section_value[section] += total_value
+            shares_str = f"{shares:,.0f}"
             price_str = f"NT${current:,.0f}"
-            section_value[section] += p["current_value"]
+            cost_str = f"NT${cost:,.0f}"
+            total_str = _fmt_twd(total_value)
+            gl_str = f"NT${gl_sign}{gl:,.0f} ({gl_arrow}{abs(gl_pct):.1f}%)"
         elif p["category"] == "加密貨幣":
             section = "加密貨幣"
+            section_value[section] += total_value
+            shares_str = f"{shares:.4f}"
             price_str = f"${current:,.2f}"
-            section_value[section] += p["current_value"]
+            cost_str = f"${cost:,.2f}"
+            total_str = _fmt_usd(total_value)
+            gl_str = f"${gl_sign}{gl:,.2f} ({gl_arrow}{abs(gl_pct):.1f}%)"
         else:
             section = "美股 / ETF"
+            section_value[section] += total_value
+            shares_str = f"{shares:,.2f}"
             price_str = f"${current:.2f}"
-            section_value[section] += p["current_value"]
+            cost_str = f"${cost:.2f}"
+            total_str = _fmt_usd(total_value)
+            gl_str = f"${gl_sign}{gl:,.2f} ({gl_arrow}{abs(gl_pct):.1f}%)"
 
-        sections[section].append(
-            f"<b>{display_ticker}</b>  <code>{price_str}</code>  持倉 {gl_str}  今日 {day_str}"
-        )
-
-    fx_rate: float | None = data["summary"].get("fx_rate")
+        sections[section].append((display_ticker, shares_str, price_str, cost_str, total_str, gl_str))
 
     lines: list[str] = []
     for section, rows in sections.items():
         if not rows:
             continue
         lines.append(f"<b>📊 {section}</b>")
-        lines.extend(rows)
+        lines.append(f"<pre>{_holdings_table(rows)}</pre>")
         val = section_value[section]
         if section == "台股":
             twd_str = _fmt_twd(val)
@@ -171,6 +188,72 @@ def handle_update_holding(
         writer.writeheader()
         writer.writerows(rows)
     return f"Updated {ticker}: {shares} shares @ {cost}."
+
+
+def handle_add_holding(
+    args: list[str],
+    portfolio_path: str = settings.portfolio_csv_path,
+) -> str:
+    # args: TICKER NAME SHARES COST CURRENCY CATEGORY
+    if len(args) < 6:
+        return "Usage: add TICKER NAME SHARES COST CURRENCY CATEGORY"
+    ticker = args[0].upper()
+    name = args[1]
+    try:
+        shares = float(args[2])
+        cost = float(args[3])
+    except ValueError:
+        return "SHARES and COST must be numbers."
+    currency = args[4].upper()
+    category = args[5]
+    p = Path(portfolio_path)
+    if not p.exists():
+        return f"Portfolio file not found: {portfolio_path}"
+    with p.open(newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        fieldnames = list(reader.fieldnames or [])
+        rows = list(reader)
+    if any(r["ticker"] == ticker for r in rows):
+        return f"{ticker} already exists in portfolio. Use Edit to update it."
+    rows.append(
+        {
+            "ticker": ticker,
+            "name": name,
+            "shares": str(shares),
+            "cost_price": str(cost),
+            "currency": currency,
+            "category": category,
+        }
+    )
+    with p.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+    return f"Added {ticker} ({name}): {shares} shares @ {cost} [{currency} / {category}]."
+
+
+def handle_remove_holding(
+    args: list[str],
+    portfolio_path: str = settings.portfolio_csv_path,
+) -> str:
+    if len(args) < 1:
+        return "Usage: remove TICKER"
+    ticker = args[0].upper()
+    p = Path(portfolio_path)
+    if not p.exists():
+        return f"Portfolio file not found: {portfolio_path}"
+    with p.open(newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        fieldnames = list(reader.fieldnames or [])
+        rows = list(reader)
+    new_rows = [r for r in rows if r["ticker"] != ticker]
+    if len(new_rows) == len(rows):
+        return f"Ticker {ticker} not found in portfolio."
+    with p.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(new_rows)
+    return f"Removed {ticker} from portfolio."
 
 
 def handle_status() -> str:

@@ -46,6 +46,8 @@ Core modules:
 - `researcher/workflows/midday.py`: US midday price alert and thesis check.
 - `researcher/workflows/weekly_review.py`: weekly portfolio reflection.
 - `researcher/handlers/chat.py`: free-form multi-turn chat — singleton PydanticAI agent with `get_portfolio`, `get_watchlist`, `read_chat_log`, `read_research_log`, `read_strategy`, and `save_note` tools; per-user history in `_sessions`; each exchange appended to `CHAT-LOG.md` immediately via `_append_chat_log`; `reset_chat_session` clears in-memory history only.
+- `researcher/handlers/commands.py`: pure (non-async) handler functions for watchlist, alert, and portfolio mutation — `handle_watchlist`, `handle_alert`, `handle_update_holding`, `handle_add_holding`, `handle_remove_holding`, `handle_holdings`, `handle_status`. Called by both `bot.py` and `interactive.py`.
+- `researcher/handlers/interactive.py`: interactive mini-apps for `/watchlist`, `/alert`, and `/update` — `ConversationHandler` factories (`build_watchlist_conversation`, `build_alert_conversation`, `build_update_conversation`) with inline keyboard flows and guided text prompts; `/update` supports Edit, Add, and Remove sub-flows.
 - `researcher/memory/io.py`: read/append/query markdown memory files.
 - `researcher/interfaces/ports.py`: `Notifier`, `PortfolioReader`, and `MemoryReader` Protocol definitions — the DI contracts all workflows depend on.
 - `researcher/services/agent_runner.py`: `make_search_agent`, `make_analysis_agent`, `run_agent_sync`, `run_agent_async` — single source for PydanticAI agent construction and exponential-backoff retry. `make_search_agent` attaches Tavily; `make_analysis_agent` has no tools (local-data analysis only).

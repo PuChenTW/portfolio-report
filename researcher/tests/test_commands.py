@@ -87,24 +87,28 @@ _FAKE_PORTFOLIO_DATA = {
                 "name": "Apple Inc.",
                 "currency": "USD",
                 "category": "美股",
+                "shares": 10,
+                "cost_price": 180.0,
                 "current_price": 213.45,
                 "current_value": 2134.5,
+                "gain_loss": 334.5,
                 "gain_loss_pct": 18.5,
                 "is_cash": False,
                 "pct_of_currency_total": 60.0,
-                "shares": 10,
             },
             {
                 "ticker": "2330.TW",
                 "name": "台積電",
                 "currency": "TWD",
                 "category": "台股",
+                "shares": 54,
+                "cost_price": 935.0,
                 "current_price": 1050.0,
                 "current_value": 56700.0,
+                "gain_loss": 6210.0,
                 "gain_loss_pct": 12.3,
                 "is_cash": False,
                 "pct_of_currency_total": 100.0,
-                "shares": 54,
             },
             {
                 "ticker": "CASH_TWD",
@@ -130,28 +134,28 @@ _FAKE_PORTFOLIO_DATA = {
 
 def test_holdings_display_contains_tickers():
     with patch("researcher.handlers.commands.fetch_portfolio", return_value=_FAKE_PORTFOLIO_DATA):
-        reply = handle_holdings([])
+        reply = handle_holdings()
     assert "AAPL" in reply
     assert "2330" in reply
 
 
 def test_holdings_display_contains_price_and_pnl():
     with patch("researcher.handlers.commands.fetch_portfolio", return_value=_FAKE_PORTFOLIO_DATA):
-        reply = handle_holdings([])
+        reply = handle_holdings()
     assert "$213" in reply or "213" in reply
     assert "18" in reply  # gain_loss_pct
 
 
 def test_holdings_display_groups_by_section():
     with patch("researcher.handlers.commands.fetch_portfolio", return_value=_FAKE_PORTFOLIO_DATA):
-        reply = handle_holdings([])
+        reply = handle_holdings()
     assert "台股" in reply
     assert "美股" in reply
 
 
 def test_holdings_display_shows_cash():
     with patch("researcher.handlers.commands.fetch_portfolio", return_value=_FAKE_PORTFOLIO_DATA):
-        reply = handle_holdings([])
+        reply = handle_holdings()
     assert "現金" in reply or "CASH" in reply or "新台幣" in reply
 
 
