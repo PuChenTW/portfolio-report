@@ -1,204 +1,42 @@
-# Development Guide
+# Developer Guide
 
-## Project Structure
+This file covers build commands, coding conventions, testing, and configuration for contributors and AI agents working on implementation tasks.
 
-This is a `uv` workspace with three Python packages:
+## Build, Test, and Development Commands
 
-```
-portfolio-mcp/
-├── portfolio-core/        # Shared portfolio logic (prices, reports, Telegram delivery)
-│   ├── portfolio/
-│   │   ├── portfolio.py   # CSV loading, batch yfinance fetches, P&L calculation
-│   │   ├── report.py      # HTML rendering, MarkdownV2 formatting, holding view models
-│   │   └── telegram.py    # send_telegram_file, send_telegram_messages
-│   └── tests/
-├── mcp-server/            # Thin FastMCP server exposing portfolio tools to Claude
-│   └── server.py          # get_portfolio_summary, get_price tool definitions
-└── researcher/            # Telegram bot + APScheduler + AI research pipelines
-    ├── __main__.py        # Entry point: starts bot + scheduler
-    ├── bot.py             # Telegram Application setup, command registration
-    ├── scheduler.py       # APScheduler cron job definitions
-    ├── interfaces/
-    │   └── ports.py       # Notifier, PortfolioReader, MemoryReader Protocols
-    ├── services/
-    │   ├── agent_runner.py      # PydanticAI agent construction + retry
-    │   ├── memory_service.py    # MemoryReader impl wrapping memory/io.py
-    │   ├── portfolio_service.py # PortfolioReader impl wrapping portfolio-core
-    │   └── workflow_deps.py     # WorkflowDeps dataclass + make_deps() factory
-    ├── infra/
-    │   └── telegram.py    # TelegramNotifier: concrete Notifier adapter
-    ├── handlers/          # Telegram command and message handlers
-    ├── pipeline/
-    │   ├── data.py        # fetch_portfolio, build_holdings, build_totals
-    │   └── news.py        # AI news summarization via PydanticAI + Tavily
-    ├── workflows/
-    │   ├── daily_summary.py   # Full P&L + news + HTML/MarkdownV2 report
-    │   ├── premarket.py       # Premarket research and alert delivery
-    │   ├── midday.py          # US midday price alert and thesis check
-    │   └── weekly_review.py   # Weekly portfolio reflection
-    └── memory/
-        └── io.py          # read/append/query markdown memory files
-```
+Run commands from the repo root unless noted otherwise:
 
-## Architecture
+- `uv sync`: install workspace dependencies into `.venv`.
+- `uv run --package portfolio-core pytest portfolio-core/tests/ -v`: run the portfolio-core test suite.
+- `uv run --package researcher pytest researcher/tests/ -v`: run the researcher test suite.
+- `uv run --package mcp-server python mcp-server/server.py`: start the MCP server over stdio.
+- `cd mcp-server && uv run mcp dev server.py`: open the MCP inspector for local tool testing.
+- `uv run --package researcher python -m researcher`: start the Telegram bot and scheduler.
+- `uv run pyright`: run static type checking using `pyrightconfig.json`.
+- `uv run ruff format .`: format all Python files across the workspace.
+- `uv run ruff format --check .`: check formatting without modifying files.
 
-The `researcher` package uses a layered architecture to keep business logic testable and independent of external services:
+## Coding Style & Naming Conventions
 
-```
-infra/                → implements → interfaces/ports.py (Notifier, PortfolioReader, MemoryReader)
-services/             → implements → interfaces/ports.py
-services/workflow_deps.py → composes infra + services into WorkflowDeps
-workflows/            → depends on → WorkflowDeps (via Protocol interfaces only)
-```
+Target Python 3.13. Use 4-space indentation, type hints on public functions, and `snake_case` for modules, functions, and variables. Keep functions focused, prefer early returns, and avoid unnecessary abstraction. Comments should explain why, not restate code. Run `uv run ruff format .` before committing to keep style consistent.
 
-**Dependency injection** is handled by `WorkflowDeps` in `services/workflow_deps.py`. The `make_deps()` factory wires together the concrete implementations. Workflows receive a `WorkflowDeps` instance and call methods on the Protocol interfaces — they never import `TelegramNotifier` or `PortfolioService` directly. This makes workflows trivially testable by passing mock implementations.
+Design constraints:
 
-## Key Modules
+- No FX conversion. Keep totals grouped by currency.
+- Batch quote fetches where possible. Do not regress into per-ticker network calls when one batched call works.
+- Failed price fetches should be reported in `errors` and should not crash the whole summary or report pipeline.
+- If the news step fails, fall back to defaults and continue report generation.
 
-| Module | Responsibility |
-|--------|---------------|
-| `portfolio-core/portfolio/portfolio.py` | CSV loading, batched yfinance price fetches, portfolio P&L grouped by currency |
-| `portfolio-core/portfolio/report.py` | HTML report rendering, holding view models, Telegram MarkdownV2 message formatting |
-| `portfolio-core/portfolio/telegram.py` | `send_telegram_file` (HTML attachment), `send_telegram_messages` (inline MarkdownV2) |
-| `mcp-server/server.py` | FastMCP server: `get_portfolio_summary`, `get_price` tool definitions |
-| `researcher/interfaces/ports.py` | `Notifier`, `PortfolioReader`, `MemoryReader` Protocol definitions |
-| `researcher/services/agent_runner.py` | `make_search_agent`, `run_agent_sync`, `run_agent_async` with exponential-backoff retry |
-| `researcher/services/workflow_deps.py` | `WorkflowDeps` dataclass, `make_deps()` composition root |
-| `researcher/infra/telegram.py` | `TelegramNotifier` — concrete `Notifier` wrapping `portfolio.telegram` |
-| `researcher/pipeline/data.py` | Portfolio fetch, holding transformation, total calculation |
-| `researcher/pipeline/news.py` | News summarization via PydanticAI + Tavily |
-| `researcher/scheduler.py` | APScheduler cron job setup for all workflows |
-| `researcher/memory/io.py` | Read/append/query markdown memory files |
+## Testing Guidelines
 
-## Environment Variables
+Tests use `pytest`. `portfolio-core/tests/` covers shared portfolio logic; `researcher/tests/` covers pipeline and workflow logic. Prefer fast, deterministic tests with mocks for network calls such as `yfinance` and Telegram delivery. Add or update tests alongside behavior changes — shared logic in `portfolio-core`, pipeline/research logic in `researcher`.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORTFOLIO_CSV_PATH` | `./portfolio.csv` | Path to portfolio CSV file |
-| `TELEGRAM_BOT_TOKEN` | — | Telegram bot API token (required) |
-| `TELEGRAM_CHAT_ID` | — | Target Telegram chat ID (required) |
-| `GOOGLE_API_KEY` | — | Google Gemini API key for PydanticAI (required for research) |
-| `TAVILY_API_KEY` | — | Tavily search API key (required for news) |
-| `WATCHLIST_CSV_PATH` | `./watchlist.csv` | Path to watchlist CSV |
-| `PRICE_ALERTS_PATH` | `./price-alerts.yml` | Path to YAML price alerts file |
-| `RESEARCHER_MEMORY_PATH` | `./memory` | Directory for markdown memory files |
+## Commit & Pull Request Guidelines
 
-## Development Commands
+Follow the commit style already in history: `feat: ...`, `fix: ...`, `refactor: ...`, `docs: ...`, `chore: ...`. Keep subjects short and imperative. PRs should explain the user-visible change, note any config or env var impact, and include the exact verification command(s) you ran. Attach screenshots or sample HTML output when changing report rendering or MCP-visible responses.
 
-All commands run from the repo root unless noted.
+## Configuration & Secrets
 
-```bash
-# Install workspace dependencies
-uv sync
+Use environment variables for runtime configuration: `PORTFOLIO_CSV_PATH`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `GOOGLE_API_KEY`, and `TAVILY_API_KEY`. Optional: `CHAT_MODEL` overrides the model used by the free-chat agent (default `google-gla:gemini-3-flash-preview`). Do not commit secrets or machine-specific `.env` files.
 
-# Run portfolio-core tests
-uv run --package portfolio-core pytest portfolio-core/tests/ -v
-
-# Run researcher tests
-uv run --package researcher pytest researcher/tests/ -v
-
-# Start the MCP server (stdio transport)
-uv run --package mcp-server python mcp-server/server.py
-
-# Open MCP inspector for local tool testing
-cd mcp-server && uv run mcp dev server.py
-
-# Start the Telegram bot + scheduler
-uv run --package researcher python -m researcher
-
-# Static type checking
-uv run pyright
-
-# Format all Python files
-uv run ruff format .
-
-# Check formatting without modifying files
-uv run ruff format --check .
-```
-
-## Testing
-
-Tests live in:
-- `portfolio-core/tests/` — shared portfolio logic (price fetching, P&L calculation, report formatting)
-- `researcher/tests/` — pipeline and workflow logic
-
-**Philosophy:** mock network calls (`yfinance`, Telegram delivery, Tavily), not business logic. Tests should be fast and deterministic. Pass mock implementations of `Notifier`, `PortfolioReader`, and `MemoryReader` protocols directly to workflow functions — no patching required.
-
-Example pattern:
-
-```python
-from researcher.services.workflow_deps import WorkflowDeps
-from researcher.workflows import daily_summary
-
-class FakeNotifier:
-    def __init__(self):
-        self.messages = []
-
-    def send_messages(self, messages: list[str]) -> None:
-        self.messages.extend(messages)
-
-class FakeMemory:
-    def read_file(self, path: str) -> str: return ""
-    def last_n_entries(self, path: str, n: int) -> str: return ""
-    def append_entry(self, path: str, content: str) -> None: pass
-    def resolve(self, filename: str) -> str: return filename
-
-class FakePortfolio:
-    def fetch(self) -> dict: return {"holdings": [], "errors": []}
-    def fetch_summary(self) -> dict: return {}
-    def build_holdings(self, data: dict) -> tuple: return ([], [])
-    def build_totals(self, data: dict) -> dict: return {}
-
-def test_daily_summary_sends_report():
-    notifier = FakeNotifier()
-    deps = WorkflowDeps(notifier=notifier, memory=FakeMemory(), portfolio=FakePortfolio())
-    daily_summary.run("TW", deps)
-    assert len(notifier.messages) > 0
-```
-
-## Adding a New Workflow
-
-1. **Create the workflow file** at `researcher/workflows/<name>.py`. Define a `run` function using only the Protocol interfaces on `deps`. Use `run(deps: WorkflowDeps)` for single-market workflows (e.g. `midday`, `weekly_review`) or `run(market: str, deps: WorkflowDeps)` for market-aware workflows (e.g. `daily_summary`, `premarket`).
-
-2. **Use deps interfaces**, not concrete classes:
-   ```python
-   from researcher.services.workflow_deps import WorkflowDeps
-
-   def run(deps: WorkflowDeps) -> None:
-       data = deps.portfolio.fetch()
-       deps.notifier.send_messages(["Hello from new workflow"])
-   ```
-
-3. **Register in the scheduler** (`researcher/scheduler.py`). For a deps-only workflow:
-   ```python
-   import researcher.workflows.<name> as <name>
-
-   scheduler.add_job(
-       _wrap(<name>.run, deps),
-       CronTrigger(day_of_week="mon-fri", hour=9, minute=0, timezone=_TZ_TW),
-   )
-   ```
-   For a market-aware workflow, pass the market string as the first positional arg:
-   ```python
-   scheduler.add_job(
-       _wrap(<name>.run, "TW", deps),
-       CronTrigger(day_of_week="mon-fri", hour=9, minute=0, timezone=_TZ_TW),
-   )
-   ```
-
-4. **Optionally register a Telegram command** in `researcher/bot.py` and add a handler in `researcher/handlers/`.
-
-5. **Write tests** in `researcher/tests/` with fake implementations of the Protocol interfaces.
-
-## Coding Conventions
-
-- **Python 3.13+** — use modern type hints (`list[str]`, `dict[str, int]`, `X | None`)
-- **Type hints on all public functions**
-- **`snake_case`** for modules, functions, and variables
-- **4-space indentation**; formatter is Ruff (`uv run ruff format .`)
-- **Early returns** — avoid deeply nested conditionals
-- **Batch price fetches** — never regress to per-ticker `yfinance` calls
-- **No FX conversion** — keep TWD and USD totals separate
-- **Failed price fetches** go into `errors`, never raise and crash the pipeline
-- **Comments explain why**, not what
-- Run `uv run ruff format .` before every commit
+Keep local-only files out of git, including `.env`, `.mcp.json`, `.claude/`, and other machine-specific paths or settings.

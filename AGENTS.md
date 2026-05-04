@@ -58,4 +58,4 @@ Core modules:
 
 # Developer Guide
 
-For build commands, coding style, testing guidelines, commit conventions, and configuration, see [`develop_guide.md`](develop_guide.md).
+For build commands, coding style, testing guidelines, commit conventions, and configuration, see @DEVELOPMENT.md
