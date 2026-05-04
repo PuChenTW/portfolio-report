@@ -427,8 +427,8 @@ def test_esc_escapes_special_chars():
     assert _esc("a_b") == "a\\_b"
 
 
-def test_format_telegram_messages_returns_three_messages():
-    assert len(_sample_msgs()) == 3
+def test_format_telegram_messages_returns_two_messages():
+    assert len(_sample_msgs()) == 2
 
 
 def test_format_telegram_messages_all_under_4096_chars():
@@ -440,9 +440,7 @@ def test_format_telegram_messages_content():
     full = "\n".join(_sample_msgs())
     assert "每日投資摘要" in full
     assert "2026" in full
-    assert "NVDA" in full
     assert "台積電" in full
-    assert "Bitcoin" in full
     assert "Fed" in full
     assert "NVDA 法說後" in full
 

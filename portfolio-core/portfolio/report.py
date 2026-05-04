@@ -309,8 +309,8 @@ def format_telegram_messages(
     macro_rows: list[str],
     tip_rows: list[str],
 ) -> list[str]:
-    """Format daily report as Telegram MarkdownV2 messages (inline, no attachment)."""
-    # Message 1: Header + Totals + Macro
+    """Format daily report as 2 Telegram MarkdownV2 messages for quick mobile glance."""
+    # Message 1: Snapshot — totals + macro
     msg1_lines = [
         f"📊 *每日投資摘要*  {_esc(today_date)}",
         "",
@@ -323,50 +323,28 @@ def format_telegram_messages(
     for row in macro_rows:
         msg1_lines.append(f"• {_esc(row)}")
 
-    def _fmt_pct(h: USHolding | TWHolding | CryptoHolding) -> str:
-        pct = h.get("pct_of_currency")
-        return f"{pct:.1f}%" if pct is not None else "  —  "
+    # Message 2: Insight — US event, TW notes (non-empty only), action items
+    msg2_lines = [
+        "⚡ *美股重點*",
+        _esc(us_event),
+    ]
 
-    # Message 2: US Holdings + TW Holdings
-    msg2_lines = ["🇺🇸 *美股市況*", "```"]
-    msg2_lines.append(f"{'標的':<14} {'最新價':>9} {'日漲跌':>7} {'損益':>6} {'佔比':>6}")
-    msg2_lines.append("─" * 46)
-    for h in us_holdings:
-        arrow = "▲" if h["day_change_up"] else "▼"
-        gl_arrow = "▲" if h["gain_loss_up"] else "▼"
-        label = f"{h['ticker']} {h['category']}"[:14]
-        msg2_lines.append(f"{label:<14} {h['price']:>9} {arrow}{h['day_change']:>6} {gl_arrow}{h['gain_loss']:>5} {_fmt_pct(h):>6}")
-    msg2_lines.append("```")
-    msg2_lines.append(f"⚡ _{_esc(us_event)}_")
+    noted = [h for h in tw_holdings if h.get("note") and h["note"] != "—"]
+    if noted:
+        msg2_lines.append("")
+        msg2_lines.append("🇹🇼 *台股個股*")
+        for h in noted:
+            msg2_lines.append(f"• {_esc(h['name'])} {_esc(h['ticker'])}：{_esc(h['note'])}")
+
     msg2_lines.append("")
-    msg2_lines.append("🇹🇼 *台股市況*")
-    msg2_lines.append("```")
-    msg2_lines.append(f"{'標的':<12} {'最新價':>9} {'日漲跌':>7} {'佔比':>6}  備註")
-    msg2_lines.append("─" * 46)
-    for h in tw_holdings:
-        arrow = "▲" if h["day_change_up"] else "▼"
-        label = f"{h['ticker']} {h['name']}"[:12]
-        msg2_lines.append(f"{label:<12} {h['price']:>9} {arrow}{h['day_change']:>6} {_fmt_pct(h):>6}  {h['note']}")
-    msg2_lines.append("```")
-
-    # Message 3: Crypto + Tips + Footer
-    msg3_lines = ["₿ *加密貨幣*", "```"]
-    msg3_lines.append(f"{'幣種':<12} {'最新價':>11} {'日漲跌':>7} {'佔比':>6}  持有量")
-    msg3_lines.append("─" * 46)
-    for h in crypto_holdings:
-        arrow = "▲" if h["day_change_up"] else "▼"
-        label = f"{h['ticker']} {h['name']}"[:12]
-        msg3_lines.append(f"{label:<12} {h['price']:>11} {arrow}{h['day_change']:>6} {_fmt_pct(h):>6}  {h['quantity']}")
-    msg3_lines.append("```")
-    msg3_lines.append("")
-    msg3_lines.append("💡 *今日重點提示*")
+    msg2_lines.append("💡 *今日行動*")
     for i, tip in enumerate(tip_rows, 1):
-        msg3_lines.append(f"{_esc(str(i))}\\. {_esc(tip)}")
-    msg3_lines.append("")
-    msg3_lines.append("_此報告由 Claude AI 自動生成 · 資料來源：Yahoo Finance_")
-    msg3_lines.append("_⚠️ 僅供參考，不構成投資建議_")
+        msg2_lines.append(f"{i}\\. {_esc(tip)}")
+    msg2_lines.append("")
+    msg2_lines.append("_此報告由 Claude AI 自動生成 · 資料來源：Yahoo Finance_")
+    msg2_lines.append("_⚠️ 僅供參考，不構成投資建議_")
 
-    return ["\n".join(msg1_lines), "\n".join(msg2_lines), "\n".join(msg3_lines)]
+    return ["\n".join(msg1_lines), "\n".join(msg2_lines)]
 
 
 def generate_daily_report_html(
