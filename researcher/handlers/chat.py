@@ -8,6 +8,7 @@ from datetime import datetime
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.common_tools.tavily import tavily_search_tool
 from pydantic_ai.messages import ModelMessage
+from pydantic_ai.models.google import GoogleModelSettings
 
 from portfolio.portfolio import TZ_TAIPEI
 from portfolio.watchlist import load_watchlist
@@ -49,6 +50,7 @@ def _make_agent() -> Agent[_ChatDeps, str]:
         deps_type=_ChatDeps,
         tools=tools,
         output_type=str,
+        model_settings=GoogleModelSettings(google_thinking_config={"include_thoughts": False}),
         system_prompt=(
             "你是一位專業的投資研究助理，熟悉台灣、美國股市和加密貨幣。你可以使用工具存取用戶的投資組合、觀察名單、研究紀錄和過去的對話紀錄，也可以搜尋網路取得最新市場資訊。請用台灣繁體中文回答，回答簡潔、有見地。"
         ),
