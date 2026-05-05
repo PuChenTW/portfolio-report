@@ -45,6 +45,8 @@ UPDATE_ADD_CURRENCY = 29
 UPDATE_ADD_CATEGORY = 30
 UPDATE_REMOVE_PICK = 31
 UPDATE_REMOVE_CONFIRM = 32
+UPDATE_CASH_PICK = 33
+UPDATE_CASH_AMOUNT = 34
 
 
 def _make_ticker_keyboard(
@@ -297,6 +299,7 @@ async def update_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
                 InlineKeyboardButton("➕ Add", callback_data="upd:menu:add"),
                 InlineKeyboardButton("🗑 Remove", callback_data="upd:menu:remove"),
             ],
+            [InlineKeyboardButton("💰 Cash", callback_data="upd:menu:cash")],
             [InlineKeyboardButton("❌ Cancel", callback_data="upd:menu:cancel")],
         ]
     )
@@ -316,6 +319,19 @@ async def update_menu_action(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if action == "add":
         await query.edit_message_text("Enter ticker symbol (e.g. NVDA or BTC-USD):")  # type: ignore[union-attr]
         return UPDATE_ADD_TICKER
+
+    if action == "cash":
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton("🇹🇼 TWD (新台幣)", callback_data="upd:cash:CASH_TWD"),
+                    InlineKeyboardButton("🇺🇸 USD (美元)", callback_data="upd:cash:CASH_USD"),
+                ],
+                [InlineKeyboardButton("❌ Cancel", callback_data="upd:cancel")],
+            ]
+        )
+        await query.edit_message_text("Select cash currency to update:", reply_markup=keyboard)  # type: ignore[union-attr]
+        return UPDATE_CASH_PICK
 
     # edit or remove — need existing tickers
     data = fetch_portfolio()
@@ -548,6 +564,67 @@ async def update_remove_confirm(update: Update, context: ContextTypes.DEFAULT_TY
     return ConversationHandler.END
 
 
+# --- Cash sub-flow ---
+
+_CASH_DISPLAY = {
+    "CASH_TWD": ("新台幣現金", "NT$"),
+    "CASH_USD": ("美元現金", "$"),
+}
+
+
+async def update_cash_pick(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()  # type: ignore[union-attr]
+    data: str = query.data  # type: ignore[union-attr]
+
+    if data == "upd:cancel":
+        await query.edit_message_text("Cancelled.")  # type: ignore[union-attr]
+        return ConversationHandler.END
+
+    ticker = data.split(":", 2)[2]  # upd:cash:CASH_TWD
+    if context.user_data is None:
+        return ConversationHandler.END
+    context.user_data["upd_ticker"] = ticker
+    name, _ = _CASH_DISPLAY.get(ticker, (ticker, ""))
+    await query.edit_message_text(  # type: ignore[union-attr]
+        f"Enter new cash amount for <b>{name}</b> (numbers only):",
+        parse_mode="HTML",
+    )
+    return UPDATE_CASH_AMOUNT
+
+
+async def update_cash_amount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    text = update.message.text.strip()  # type: ignore[union-attr]
+    try:
+        amount = float(text)
+    except ValueError:
+        await update.message.reply_text("Please enter a valid number:")  # type: ignore[union-attr]
+        return UPDATE_CASH_AMOUNT
+
+    if context.user_data is None:
+        return ConversationHandler.END
+    ticker = context.user_data.get("upd_ticker", "")
+    name, symbol = _CASH_DISPLAY.get(ticker, (ticker, ""))
+    context.user_data["upd_shares"] = "1"
+    context.user_data["upd_cost"] = text
+
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("✅ Confirm", callback_data="upd:confirm"),
+                InlineKeyboardButton("❌ Cancel", callback_data="upd:cancel"),
+            ]
+        ]
+    )
+    formatted = f"{symbol}{amount:,.0f}"
+    await update.message.reply_text(  # type: ignore[union-attr]
+        f"Update <b>{name}</b>: {formatted}. Confirm?",
+        reply_markup=keyboard,
+        parse_mode="HTML",
+    )
+    return UPDATE_CONFIRM
+
+
 def build_update_conversation() -> ConversationHandler:
     return ConversationHandler(
         entry_points=[CommandHandler("update", update_entry)],
@@ -565,6 +642,8 @@ def build_update_conversation() -> ConversationHandler:
             UPDATE_ADD_CATEGORY: [CallbackQueryHandler(update_add_category, pattern=r"^upd:cat:.+$")],
             UPDATE_REMOVE_PICK: [CallbackQueryHandler(update_remove_pick, pattern=r"^upd:(rm:.+|cancel)$")],
             UPDATE_REMOVE_CONFIRM: [CallbackQueryHandler(update_remove_confirm, pattern=r"^upd:(rmconfirm|cancel)$")],
+            UPDATE_CASH_PICK: [CallbackQueryHandler(update_cash_pick, pattern=r"^upd:(cash:.+|cancel)$")],
+            UPDATE_CASH_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, update_cash_amount)],
             ConversationHandler.TIMEOUT: [
                 MessageHandler(filters.ALL, _handle_timeout),
                 CallbackQueryHandler(_handle_timeout),
