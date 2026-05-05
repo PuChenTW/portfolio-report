@@ -4,7 +4,7 @@ from typing import Any
 import yfinance as yf
 from mcp.server.fastmcp import FastMCP
 
-from portfolio.portfolio import compute_summary, now_taipei
+from portfolio.portfolio import compute_summary, fetch_prices, now_taipei
 
 CSV_PATH = os.environ.get("PORTFOLIO_CSV_PATH", "./portfolio.csv")
 
@@ -36,6 +36,17 @@ def get_price(ticker: str) -> dict[str, Any]:
         "currency": currency,
         "fetched_at": now_taipei(),
     }
+
+
+@mcp.tool()
+def get_prices(tickers: list[str]) -> dict[str, Any]:
+    """Batch-fetch live prices for multiple tickers in a single network call.
+
+    Returns a dict keyed by ticker. Each value is either
+    {ticker, price, currency, fetched_at} on success or
+    {ticker, error, fetched_at} on failure.
+    """
+    return fetch_prices(tickers)
 
 
 def main():

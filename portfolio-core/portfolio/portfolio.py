@@ -32,6 +32,38 @@ def _fetch_prices(tickers: list[str]) -> dict[str, float]:
     return _fetch_field(tickers, "lastPrice")
 
 
+def fetch_prices(tickers: list[str]) -> dict[str, Any]:
+    """Batch-fetch live prices for a list of tickers.
+
+    Returns {ticker: {price, currency, fetched_at}} for successes,
+    {ticker: {error, fetched_at}} for failures.
+    """
+    if not tickers:
+        return {}
+
+    data = yf.Tickers(" ".join(tickers))
+    fetched_at = now_taipei()
+    result: dict[str, Any] = {}
+
+    for ticker in tickers:
+        try:
+            info = data.tickers[ticker].fast_info
+            result[ticker] = {
+                "ticker": ticker,
+                "price": float(info["lastPrice"]),
+                "currency": info.get("currency", "UNKNOWN"),
+                "fetched_at": fetched_at,
+            }
+        except (KeyError, TypeError, ValueError):
+            result[ticker] = {
+                "ticker": ticker,
+                "error": "Failed to fetch price",
+                "fetched_at": fetched_at,
+            }
+
+    return result
+
+
 def fetch_prev_closes(tickers: list[str]) -> dict[str, float]:
     """Batch-fetch previous close prices. Returns {ticker: prev_close}."""
     return _fetch_field(tickers, "previousClose")

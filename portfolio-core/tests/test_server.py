@@ -5,7 +5,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from portfolio.portfolio import compute_summary, _fetch_prices
+from portfolio.portfolio import compute_summary, _fetch_prices, fetch_prices
 from portfolio.report import (
     USHolding,
     TWHolding,
@@ -54,6 +54,49 @@ def test_fetch_prices(mock_tickers_cls):
 
     result = _fetch_prices(["2330.TW"])
     assert result["2330.TW"] == 920.0
+
+
+@patch("yfinance.Tickers")
+def test_fetch_prices_batch_returns_price_and_currency(mock_tickers_cls):
+    mock_ticker_voo = MagicMock()
+    mock_ticker_voo.fast_info = {"lastPrice": 480.0, "currency": "USD"}
+    mock_ticker_tsmc = MagicMock()
+    mock_ticker_tsmc.fast_info = {"lastPrice": 920.0, "currency": "TWD"}
+
+    tickers_obj = MagicMock()
+    tickers_obj.tickers = {"VOO": mock_ticker_voo, "2330.TW": mock_ticker_tsmc}
+    mock_tickers_cls.return_value = tickers_obj
+
+    result = fetch_prices(["VOO", "2330.TW"])
+
+    assert result["VOO"]["price"] == pytest.approx(480.0)
+    assert result["VOO"]["currency"] == "USD"
+    assert "fetched_at" in result["VOO"]
+    assert result["2330.TW"]["price"] == pytest.approx(920.0)
+    assert result["2330.TW"]["currency"] == "TWD"
+
+
+@patch("yfinance.Tickers")
+def test_fetch_prices_batch_handles_partial_failure(mock_tickers_cls):
+    mock_good = MagicMock()
+    mock_good.fast_info = {"lastPrice": 480.0, "currency": "USD"}
+    mock_bad = MagicMock()
+    mock_bad.fast_info = {}  # missing lastPrice → ValueError
+
+    tickers_obj = MagicMock()
+    tickers_obj.tickers = {"VOO": mock_good, "BROKEN": mock_bad}
+    mock_tickers_cls.return_value = tickers_obj
+
+    result = fetch_prices(["VOO", "BROKEN"])
+
+    assert result["VOO"]["price"] == pytest.approx(480.0)
+    assert "error" in result["BROKEN"]
+    assert "price" not in result["BROKEN"]
+
+
+def test_fetch_prices_empty_input():
+    result = fetch_prices([])
+    assert result == {}
 
 
 @patch("yfinance.Tickers")
