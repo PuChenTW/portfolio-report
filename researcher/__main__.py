@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import signal
 from datetime import datetime
 
@@ -11,6 +12,12 @@ from researcher.bot import COMMANDS
 
 
 async def main() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S",
+    )
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     print(f"[{datetime.now(TZ_TAIPEI).isoformat()}] Researcher agent starting...")
 
     scheduler = create_scheduler()
