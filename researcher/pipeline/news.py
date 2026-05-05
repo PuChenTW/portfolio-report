@@ -17,6 +17,9 @@ _CLOSE_PROMPT_TEMPLATE = """\
 今日盤前與盤中研究紀錄：
 {research_entries}
 
+今日持倉異動紀錄：
+{transaction_log}
+
 任務：請對照今日盤前預測與盤中觀察，與實際收盤結果進行交叉驗證，完成以下欄位：
 
 - macro_rows：3-5 條今日收盤後總體市場重點，點出盤前預測哪些成真、哪些未如預期
@@ -198,6 +201,7 @@ def generate_close_insight(
     *,
     research_entries: str = "",
     market: str = "US",
+    transaction_log: str = "",
 ) -> dict:
     """Generate closing insight by cross-referencing today's research log with close prices."""
     now = datetime.now(TZ_TAIPEI)
@@ -219,6 +223,7 @@ def generate_close_insight(
         market=market,
         portfolio_json=json.dumps(portfolio_summary, ensure_ascii=False),
         research_entries=filtered or "(今日無盤前或盤中研究紀錄)",
+        transaction_log=transaction_log or "(今日無持倉異動)",
     )
 
     agent = make_analysis_agent(

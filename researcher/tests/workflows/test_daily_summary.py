@@ -39,7 +39,9 @@ def _make_deps(research_entries: str = "") -> WorkflowDeps:
     memory.last_n_entries.return_value = research_entries
     memory.resolve.side_effect = lambda f: f
     notifier = MagicMock()
-    return WorkflowDeps(notifier=notifier, memory=memory, portfolio=portfolio)
+    transaction_log = MagicMock()
+    transaction_log.entries_since.return_value = ""
+    return WorkflowDeps(notifier=notifier, memory=memory, transaction_log=transaction_log, portfolio=portfolio)
 
 
 def _today_research(market: str) -> str:

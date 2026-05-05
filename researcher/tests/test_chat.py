@@ -145,3 +145,89 @@ def test_append_chat_log_accumulates_multiple_turns(tmp_path, monkeypatch):
     content = (tmp_path / "CHAT-LOG.md").read_text()
     assert "第一問" in content
     assert "第二問" in content
+
+
+def _make_ctx(deps):
+    ctx = MagicMock()
+    ctx.deps = deps
+    return ctx
+
+
+def _make_test_agent():
+    from researcher.config import settings
+    with patch.object(settings, "chat_model", "test"):
+        from researcher.handlers.chat import _make_agent
+        return _make_agent()
+
+
+def _make_chat_deps(tmp_path):
+    from researcher.handlers.chat import _ChatDeps
+    from researcher.services.transaction_log import MarkdownTransactionLog
+
+    return _ChatDeps(
+        memory_path=str(tmp_path),
+        watchlist_path=str(tmp_path / "w.csv"),
+        portfolio_path=str(tmp_path / "p.csv"),
+        transaction_log=MarkdownTransactionLog(str(tmp_path / "TRANSACTION-LOG.md")),
+    )
+
+
+def test_update_holding_tool_delegates_to_handler(tmp_path):
+    deps = _make_chat_deps(tmp_path)
+
+    with patch("researcher.handlers.chat.handle_update_holding", return_value="Updated TSLA: 10.0 shares @ 250.0.") as mock_update:
+        agent = _make_test_agent()
+        tool_fn = agent._function_toolset.tools["update_holding"].function
+        result = tool_fn(_make_ctx(deps), ticker="TSLA", shares=10.0, cost_price=250.0, reason="調整")
+
+    mock_update.assert_called_once_with(["TSLA", "10.0", "250.0"], deps.portfolio_path, "調整", deps.transaction_log)
+    assert "Updated" in result
+
+
+def test_add_holding_tool_delegates_to_handler(tmp_path):
+    deps = _make_chat_deps(tmp_path)
+
+    with patch("researcher.handlers.chat.handle_add_holding", return_value="Added NVDA (Nvidia): 5.0 shares @ 800.0 [USD / 美股].") as mock_add:
+        agent = _make_test_agent()
+        tool_fn = agent._function_toolset.tools["add_holding"].function
+        result = tool_fn(_make_ctx(deps), ticker="NVDA", name="Nvidia", shares=5.0, cost_price=800.0, currency="USD", category="美股", reason="長期持有")
+
+    mock_add.assert_called_once_with(["NVDA", "Nvidia", "5.0", "800.0", "USD", "美股"], deps.portfolio_path, "長期持有", deps.transaction_log)
+    assert "Added" in result
+
+
+def test_remove_holding_tool_delegates_to_handler(tmp_path):
+    deps = _make_chat_deps(tmp_path)
+
+    with patch("researcher.handlers.chat.handle_remove_holding", return_value="Removed TSLA from portfolio.") as mock_remove:
+        agent = _make_test_agent()
+        tool_fn = agent._function_toolset.tools["remove_holding"].function
+        result = tool_fn(_make_ctx(deps), ticker="TSLA", reason="止損")
+
+    mock_remove.assert_called_once_with(["TSLA"], deps.portfolio_path, "止損", deps.transaction_log)
+    assert "Removed" in result
+
+
+def test_read_transaction_log_tool_returns_entries(tmp_path):
+    log = tmp_path / "TRANSACTION-LOG.md"
+    # Write a recent entry (today's date so entries_since picks it up)
+    from datetime import date
+    today = date.today().isoformat()
+    log.write_text(f"## {today} 14:32 UPDATE TSLA\nshares=10.0 cost=250.0\n")
+    deps = _make_chat_deps(tmp_path)
+
+    agent = _make_test_agent()
+    tool_fn = agent._function_toolset.tools["read_transaction_log"].function
+    result = tool_fn(_make_ctx(deps), since_days=1)
+
+    assert "UPDATE TSLA" in result
+
+
+def test_read_transaction_log_tool_empty(tmp_path):
+    deps = _make_chat_deps(tmp_path)
+
+    agent = _make_test_agent()
+    tool_fn = agent._function_toolset.tools["read_transaction_log"].function
+    result = tool_fn(_make_ctx(deps))
+
+    assert "無持倉異動紀錄" in result

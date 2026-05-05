@@ -14,7 +14,8 @@ def _make_deps(positions):
     memory.last_n_entries.return_value = ""
     memory.resolve.return_value = "RESEARCH-LOG.md"
     notifier = MagicMock()
-    return WorkflowDeps(notifier=notifier, memory=memory, portfolio=portfolio)
+    transaction_log = MagicMock()
+    return WorkflowDeps(notifier=notifier, memory=memory, transaction_log=transaction_log, portfolio=portfolio)
 
 
 def test_tw_market_filters_twd_positions():

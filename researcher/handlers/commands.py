@@ -5,6 +5,7 @@ from pathlib import Path
 from portfolio.watchlist import WatchlistEntry, add_ticker, load_watchlist, remove_ticker
 from portfolio.alerts import load_alerts
 from researcher.config import settings
+from researcher.interfaces.ports import TransactionLog
 from researcher.pipeline.data import fetch_portfolio, _fmt_usd, _fmt_twd
 
 
@@ -158,6 +159,8 @@ def handle_holdings() -> str:
 def handle_update_holding(
     args: list[str],
     portfolio_path: str = settings.portfolio_csv_path,
+    reason: str = "",
+    transaction_log: TransactionLog | None = None,
 ) -> str:
     if len(args) < 3:
         return "Usage: /update TICKER SHARES COST"
@@ -187,12 +190,16 @@ def handle_update_holding(
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
+    if transaction_log is not None:
+        transaction_log.append(ticker, "UPDATE", f"shares={shares} cost={cost}", reason)
     return f"Updated {ticker}: {shares} shares @ {cost}."
 
 
 def handle_add_holding(
     args: list[str],
     portfolio_path: str = settings.portfolio_csv_path,
+    reason: str = "",
+    transaction_log: TransactionLog | None = None,
 ) -> str:
     # args: TICKER NAME SHARES COST CURRENCY CATEGORY
     if len(args) < 6:
@@ -229,12 +236,16 @@ def handle_add_holding(
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
+    if transaction_log is not None:
+        transaction_log.append(ticker, "ADD", f"name={name} shares={shares} cost={cost} currency={currency} category={category}", reason)
     return f"Added {ticker} ({name}): {shares} shares @ {cost} [{currency} / {category}]."
 
 
 def handle_remove_holding(
     args: list[str],
     portfolio_path: str = settings.portfolio_csv_path,
+    reason: str = "",
+    transaction_log: TransactionLog | None = None,
 ) -> str:
     if len(args) < 1:
         return "Usage: remove TICKER"
@@ -253,6 +264,8 @@ def handle_remove_holding(
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(new_rows)
+    if transaction_log is not None:
+        transaction_log.append(ticker, "REMOVE", "", reason)
     return f"Removed {ticker} from portfolio."
 
 

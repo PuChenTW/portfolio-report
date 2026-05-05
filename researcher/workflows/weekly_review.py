@@ -43,14 +43,19 @@ def run(deps: WorkflowDeps) -> None:
     date_str = now.strftime("%Y-%m-%d")
     print(f"[{now.isoformat()}] weekly_review.run()")
 
+    from datetime import date as _date, timedelta
+    today_date = _date.today()
+    last_monday = today_date - timedelta(days=today_date.weekday())
     portfolio_log = deps.memory.last_n_entries(deps.memory.resolve("PORTFOLIO-LOG.md"), 10)
     research_log = deps.memory.last_n_entries(deps.memory.resolve("RESEARCH-LOG.md"), 10)
+    transaction_log = deps.transaction_log.entries_since(last_monday)
     benchmarks = _fetch_benchmark_returns()
     benchmark_str = "  ".join(f"{t}: {v:+.2f}%" for t, v in benchmarks.items())
 
     prompt = (
         f"今天是 {date_str}（週末）。請回顧本週投資組合表現並撰寫覆盤報告。\n\n"
         f"本週持倉快照：\n{portfolio_log}\n\n"
+        f"本週持倉異動：\n{transaction_log}\n\n"
         f"本週研究紀錄：\n{research_log}\n\n"
         f"本週指數表現：{benchmark_str}\n\n"
         f"請填寫：\n"

@@ -5,6 +5,8 @@ from researcher.handlers.commands import (
     handle_alert,
     handle_holdings,
     handle_update_holding,
+    handle_add_holding,
+    handle_remove_holding,
     handle_status,
 )
 
@@ -163,3 +165,81 @@ def test_status_returns_string():
     reply = handle_status()
     assert isinstance(reply, str)
     assert len(reply) > 0
+
+
+def test_update_holding_logs_transaction(tmp_path):
+    from researcher.services.transaction_log import MarkdownTransactionLog
+
+    p = tmp_path / "portfolio.csv"
+    p.write_text("ticker,name,shares,cost_price,currency,category\nAAPL,Apple,10,150.0,USD,美股\n")
+    txlog = MarkdownTransactionLog(str(tmp_path / "TRANSACTION-LOG.md"))
+
+    handle_update_holding(["AAPL", "20", "160.0"], portfolio_path=str(p), reason="加碼", transaction_log=txlog)
+
+    log = (tmp_path / "TRANSACTION-LOG.md").read_text()
+    assert "UPDATE AAPL" in log
+    assert "shares=20.0 cost=160.0" in log
+    assert "Reason: 加碼" in log
+
+
+def test_update_holding_no_log_when_transaction_log_is_none(tmp_path):
+    p = tmp_path / "portfolio.csv"
+    p.write_text("ticker,name,shares,cost_price,currency,category\nAAPL,Apple,10,150.0,USD,美股\n")
+
+    handle_update_holding(["AAPL", "20", "160.0"], portfolio_path=str(p))
+
+    assert not (tmp_path / "TRANSACTION-LOG.md").exists()
+
+
+def test_update_holding_no_log_on_failure(tmp_path):
+    from researcher.services.transaction_log import MarkdownTransactionLog
+
+    p = tmp_path / "portfolio.csv"
+    p.write_text("ticker,name,shares,cost_price,currency,category\nAAPL,Apple,10,150.0,USD,美股\n")
+    txlog = MarkdownTransactionLog(str(tmp_path / "TRANSACTION-LOG.md"))
+
+    handle_update_holding(["NVDA", "5", "100.0"], portfolio_path=str(p), transaction_log=txlog)
+
+    assert not (tmp_path / "TRANSACTION-LOG.md").exists()
+
+
+def test_add_holding_logs_transaction(tmp_path):
+    from researcher.services.transaction_log import MarkdownTransactionLog
+
+    p = tmp_path / "portfolio.csv"
+    p.write_text("ticker,name,shares,cost_price,currency,category\n")
+    txlog = MarkdownTransactionLog(str(tmp_path / "TRANSACTION-LOG.md"))
+
+    handle_add_holding(["NVDA", "Nvidia", "5", "800.0", "USD", "美股"], portfolio_path=str(p), reason="長期持有", transaction_log=txlog)
+
+    log = (tmp_path / "TRANSACTION-LOG.md").read_text()
+    assert "ADD NVDA" in log
+    assert "name=Nvidia" in log
+    assert "Reason: 長期持有" in log
+
+
+def test_remove_holding_logs_transaction(tmp_path):
+    from researcher.services.transaction_log import MarkdownTransactionLog
+
+    p = tmp_path / "portfolio.csv"
+    p.write_text("ticker,name,shares,cost_price,currency,category\nTSLA,Tesla,10,200.0,USD,美股\n")
+    txlog = MarkdownTransactionLog(str(tmp_path / "TRANSACTION-LOG.md"))
+
+    handle_remove_holding(["TSLA"], portfolio_path=str(p), reason="止損", transaction_log=txlog)
+
+    log = (tmp_path / "TRANSACTION-LOG.md").read_text()
+    assert "REMOVE TSLA" in log
+    assert "Reason: 止損" in log
+
+
+def test_transaction_log_omits_reason_when_empty(tmp_path):
+    from researcher.services.transaction_log import MarkdownTransactionLog
+
+    p = tmp_path / "portfolio.csv"
+    p.write_text("ticker,name,shares,cost_price,currency,category\nAAPL,Apple,10,150.0,USD,美股\n")
+    txlog = MarkdownTransactionLog(str(tmp_path / "TRANSACTION-LOG.md"))
+
+    handle_update_holding(["AAPL", "15", "155.0"], portfolio_path=str(p), transaction_log=txlog)
+
+    log = (tmp_path / "TRANSACTION-LOG.md").read_text()
+    assert "Reason:" not in log

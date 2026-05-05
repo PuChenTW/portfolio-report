@@ -3,7 +3,7 @@ import os
 import re
 import sys
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.common_tools.tavily import tavily_search_tool
@@ -13,8 +13,11 @@ from pydantic_ai.models.google import GoogleModelSettings
 from portfolio.portfolio import TZ_TAIPEI
 from portfolio.watchlist import load_watchlist
 from researcher.config import settings
+from researcher.handlers.commands import handle_add_holding, handle_remove_holding, handle_update_holding
+from researcher.interfaces.ports import TransactionLog
 from researcher.memory.io import append_entry, last_n_entries, read_file
 from researcher.services.portfolio_service import PortfolioService
+from researcher.services.transaction_log import MarkdownTransactionLog
 
 _CHAT_LOG = "CHAT-LOG.md"
 
@@ -40,6 +43,8 @@ _sessions: dict[int, list[ModelMessage]] = {}
 class _ChatDeps:
     memory_path: str
     watchlist_path: str
+    portfolio_path: str
+    transaction_log: TransactionLog
 
 
 def _make_agent() -> Agent[_ChatDeps, str]:
@@ -52,7 +57,7 @@ def _make_agent() -> Agent[_ChatDeps, str]:
         output_type=str,
         model_settings=GoogleModelSettings(google_thinking_config={"include_thoughts": False}),
         system_prompt=(
-            "你是一位專業的投資研究助理，熟悉台灣、美國股市和加密貨幣。你可以使用工具存取用戶的投資組合、觀察名單、研究紀錄和過去的對話紀錄，也可以搜尋網路取得最新市場資訊。請用台灣繁體中文回答，回答簡潔、有見地。"
+            "你是一位專業的投資研究助理，熟悉台灣、美國股市和加密貨幣。你可以使用工具存取用戶的投資組合、觀察名單、研究紀錄和過去的對話紀錄，也可以搜尋網路取得最新市場資訊。你也可以透過工具更新、新增或移除持倉，但必須在使用者明確確認後才能執行。請用台灣繁體中文回答，回答簡潔、有見地。"
         ),
     )
 
@@ -103,6 +108,27 @@ def _make_agent() -> Agent[_ChatDeps, str]:
         append_entry(path, entry)
         return "已儲存至研究紀錄。"
 
+    @agent.tool
+    def update_holding(ctx: RunContext[_ChatDeps], ticker: str, shares: float, cost_price: float, reason: str = "") -> str:
+        """Update shares and average cost for an existing holding. reason: why this trade was made. Only call after user confirms."""
+        return handle_update_holding([ticker, str(shares), str(cost_price)], ctx.deps.portfolio_path, reason, ctx.deps.transaction_log)
+
+    @agent.tool
+    def add_holding(ctx: RunContext[_ChatDeps], ticker: str, name: str, shares: float, cost_price: float, currency: str, category: str, reason: str = "") -> str:
+        """Add a new holding. currency: TWD or USD. category: 台股/台灣ETF/美股/美國ETF/加密貨幣. reason: investment thesis. Only call after user confirms."""
+        return handle_add_holding([ticker, name, str(shares), str(cost_price), currency, category], ctx.deps.portfolio_path, reason, ctx.deps.transaction_log)
+
+    @agent.tool
+    def remove_holding(ctx: RunContext[_ChatDeps], ticker: str, reason: str = "") -> str:
+        """Remove a holding from the portfolio. reason: why selling/exiting. Only call after user confirms."""
+        return handle_remove_holding([ticker], ctx.deps.portfolio_path, reason, ctx.deps.transaction_log)
+
+    @agent.tool
+    def read_transaction_log(ctx: RunContext[_ChatDeps], since_days: int = 30) -> str:
+        """Read portfolio transactions from the last since_days days (default 30)."""
+        since = date.today() - timedelta(days=since_days)
+        return ctx.deps.transaction_log.entries_since(since) or "(無持倉異動紀錄)"
+
     return agent
 
 
@@ -117,9 +143,14 @@ def _get_agent() -> Agent[_ChatDeps, str]:
 
 
 def _make_deps() -> _ChatDeps:
+    memory_path = settings.researcher_memory_path
     return _ChatDeps(
-        memory_path=settings.researcher_memory_path,
+        memory_path=memory_path,
         watchlist_path=settings.watchlist_csv_path,
+        portfolio_path=settings.portfolio_csv_path,
+        transaction_log=MarkdownTransactionLog(
+            os.path.join(memory_path, "TRANSACTION-LOG.md")
+        ),
     )
 
 

@@ -35,6 +35,27 @@ Tests use `pytest`. `portfolio-core/tests/` covers shared portfolio logic; `rese
 
 Follow the commit style already in history: `feat: ...`, `fix: ...`, `refactor: ...`, `docs: ...`, `chore: ...`. Keep subjects short and imperative. PRs should explain the user-visible change, note any config or env var impact, and include the exact verification command(s) you ran. Attach screenshots or sample HTML output when changing report rendering or MCP-visible responses.
 
+## Memory Files
+
+Persistent state lives in the `memory/` directory (path configured via `researcher_memory_path`):
+
+| File | Written by | Read by |
+|---|---|---|
+| `RESEARCH-LOG.md` | premarket, midday, daily_summary workflows | daily_summary, weekly_review, chat agent |
+| `PORTFOLIO-LOG.md` | daily_summary (close snapshot) | weekly_review |
+| `TRANSACTION-LOG.md` | `MarkdownTransactionLog.append` (via mutation handlers) | daily_summary (today), weekly_review (this week), chat agent (last N days) |
+| `CHAT-LOG.md` | `_append_chat_log` in chat.py | chat agent (`read_chat_log` tool) |
+| `INVESTMENT-STRATEGY.md` | manual | premarket workflow, chat agent |
+| `WEEKLY-REVIEW.md` | weekly_review workflow | — |
+
+`TRANSACTION-LOG.md` uses `## YYYY-MM-DD HH:MM ACTION TICKER` section headers. Query it with `TransactionLog.entries_since(date)` — never with `last_n_entries`, which counts sections rather than spanning a time window.
+
+## DI and the TransactionLog Interface
+
+`TransactionLog` in `interfaces/ports.py` is the stable contract for transaction persistence. The current implementation is `MarkdownTransactionLog` in `services/transaction_log.py`. To swap to SQLite: implement the Protocol in a new class, update the single construction site in `make_deps()` (workflow_deps.py) and `_make_deps()` (chat.py). No other files change.
+
+Portfolio mutation handlers (`handle_update_holding`, `handle_add_holding`, `handle_remove_holding`) accept `transaction_log: TransactionLog | None = None`. Pass `None` in tests that don't need logging; pass a `MarkdownTransactionLog` instance in production callers.
+
 ## Configuration & Secrets
 
 Use environment variables for runtime configuration: `PORTFOLIO_CSV_PATH`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `GOOGLE_API_KEY`, and `TAVILY_API_KEY`. Optional: `CHAT_MODEL` overrides the model used by the free-chat agent (default `google-gla:gemini-3-flash-preview`). Do not commit secrets or machine-specific `.env` files.
