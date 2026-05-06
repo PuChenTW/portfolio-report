@@ -5,7 +5,7 @@
   "include": [
     "portfolio-core",
     "mcp-server",
-    "daily-report"
+    "researcher",
   ],
   "extraPaths": [
     "portfolio-core"
