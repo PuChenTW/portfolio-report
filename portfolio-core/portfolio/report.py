@@ -249,7 +249,6 @@ DAILY_REPORT_TEMPLATE = """\
   </div>
 
   <div style="margin-top:20px;text-align:center;color:#4a5568;font-size:11px;line-height:1.8;">
-    <p>此報告由 Claude AI 自動生成 · 每日 07:00 發送</p>
     <p>資料來源：Yahoo Finance 即時行情 + 網路財經新聞</p>
     <p style="margin-top:4px;color:#2d3748;">⚠️ 本報告僅供參考，不構成投資建議</p>
   </div>
@@ -341,7 +340,6 @@ def format_telegram_messages(
     for i, tip in enumerate(tip_rows, 1):
         msg2_lines.append(f"{i}\\. {_esc(tip)}")
     msg2_lines.append("")
-    msg2_lines.append("_此報告由 Claude AI 自動生成 · 資料來源：Yahoo Finance_")
     msg2_lines.append("_⚠️ 僅供參考，不構成投資建議_")
 
     return ["\n".join(msg1_lines), "\n".join(msg2_lines)]

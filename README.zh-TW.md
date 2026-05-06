@@ -2,11 +2,11 @@
 
 # portfolio-mcp
 
-一個自動化的投資組合管理系統，結合了 MCP 伺服器（供 Claude 使用）、Telegram 機器人，以及 AI 驅動的排程研究功能——全部建構於共用的 Python 投資組合函式庫之上。
+一個自動化的投資組合管理系統，結合了 MCP 伺服器、Telegram 機器人，以及 AI 驅動的排程研究功能——全部建構於共用的 Python 投資組合函式庫之上。
 
 ## 功能特色
 
-- **Claude 的 MCP 工具** — 提供 `get_portfolio_summary` 和 `get_price` 工具，讓 Claude 可以直接查詢你的即時投資組合
+- **MCP 工具** — 提供 `get_portfolio_summary` 和 `get_price` 工具，讓 AI Agent 可以直接查詢你的即時投資組合
 - **Telegram 機器人** — 透過斜線指令與投資組合互動（`/holdings`、`/watchlist`、`/alert`、`/research`、`/status`），並支援自由多輪對話
 - **AI 對話代理** — 可存取即時持倉、觀察清單、研究記錄與網路搜尋的對話助理；每個 turn 即時寫入磁碟，重啟 session 後仍保有歷史記憶
 - **AI 驅動的研究** — 使用 PydanticAI + Tavily 搜尋生成市場新聞摘要與論點更新

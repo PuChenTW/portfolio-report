@@ -2,11 +2,11 @@
 
 # portfolio-mcp
 
-An automated investment portfolio system that combines an MCP server for Claude, a Telegram bot, and AI-powered scheduled research — all built on a shared Python portfolio library.
+An automated investment portfolio system that combines an MCP server, a Telegram bot, and AI-powered scheduled research — all built on a shared Python portfolio library.
 
 ## Features
 
-- **MCP Tools for Claude** — expose `get_portfolio_summary` and `get_price` tools so Claude can query your live portfolio directly
+- **MCP Tools** — expose `get_portfolio_summary` and `get_price` tools so AI Agent can query your live portfolio directly
 - **Telegram Bot** — interact with your portfolio via slash commands (`/holdings`, `/watchlist`, `/alert`, `/research`, `/status`) and free-form multi-turn chat
 - **AI Chat Agent** — conversational assistant with access to live portfolio, watchlist, research history, and web search; conversation is persisted turn-by-turn so context survives session resets
 - **AI-Powered Research** — PydanticAI + Tavily search generates market news summaries and thesis updates
