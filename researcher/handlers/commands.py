@@ -6,7 +6,7 @@ from portfolio.watchlist import WatchlistEntry, add_ticker, load_watchlist, remo
 from portfolio.alerts import load_alerts
 from researcher.config import settings
 from researcher.interfaces.ports import TransactionLog
-from researcher.pipeline.data import fetch_portfolio, _fmt_usd, _fmt_twd
+from researcher.pipeline.data import fetch_portfolio, fmt_usd, fmt_twd
 
 
 def handle_watchlist(args: list[str], watchlist_path: str = settings.watchlist_csv_path) -> str:
@@ -96,7 +96,7 @@ def handle_holdings() -> str:
         display_ticker = ticker.replace("-USD", "").replace(".TW", "")
 
         if p.get("is_cash"):
-            val_str = _fmt_twd(p["current_value"]) if p["currency"] == "TWD" else _fmt_usd(p["current_value"])
+            val_str = fmt_twd(p["current_value"]) if p["currency"] == "TWD" else fmt_usd(p["current_value"])
             sections["現金"].append((p["name"], "—", val_str, "—", "—", "—"))
             continue
 
@@ -115,7 +115,7 @@ def handle_holdings() -> str:
             shares_str = f"{shares:,.0f}"
             price_str = f"NT${current:,.0f}"
             cost_str = f"NT${cost:,.0f}"
-            total_str = _fmt_twd(total_value)
+            total_str = fmt_twd(total_value)
             gl_str = f"NT${gl_sign}{gl:,.0f} ({gl_arrow}{abs(gl_pct):.1f}%)"
         elif p["category"] == "加密貨幣":
             section = "加密貨幣"
@@ -123,7 +123,7 @@ def handle_holdings() -> str:
             shares_str = f"{shares:.4f}"
             price_str = f"${current:,.2f}"
             cost_str = f"${cost:,.2f}"
-            total_str = _fmt_usd(total_value)
+            total_str = fmt_usd(total_value)
             gl_str = f"${gl_sign}{gl:,.2f} ({gl_arrow}{abs(gl_pct):.1f}%)"
         else:
             section = "美股 / ETF"
@@ -131,7 +131,7 @@ def handle_holdings() -> str:
             shares_str = f"{shares:,.2f}"
             price_str = f"${current:.2f}"
             cost_str = f"${cost:.2f}"
-            total_str = _fmt_usd(total_value)
+            total_str = fmt_usd(total_value)
             gl_str = f"${gl_sign}{gl:,.2f} ({gl_arrow}{abs(gl_pct):.1f}%)"
 
         sections[section].append((display_ticker, shares_str, price_str, cost_str, total_str, gl_str))
@@ -144,12 +144,12 @@ def handle_holdings() -> str:
         lines.append(f"<pre>{_holdings_table(rows)}</pre>")
         val = section_value[section]
         if section == "台股":
-            twd_str = _fmt_twd(val)
-            usd_str = _fmt_usd(val / fx_rate) if fx_rate else "—"
+            twd_str = fmt_twd(val)
+            usd_str = fmt_usd(val / fx_rate) if fx_rate else "—"
             lines.append(f"<i>合計 {twd_str}  /  {usd_str}</i>")
         elif section in ("美股 / ETF", "加密貨幣"):
-            usd_str = _fmt_usd(val)
-            twd_str = _fmt_twd(val * fx_rate) if fx_rate else "—"
+            usd_str = fmt_usd(val)
+            twd_str = fmt_twd(val * fx_rate) if fx_rate else "—"
             lines.append(f"<i>合計 {usd_str}  /  {twd_str}</i>")
         lines.append("")
 

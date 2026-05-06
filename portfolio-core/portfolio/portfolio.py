@@ -37,6 +37,29 @@ def fetch_prev_closes(tickers: list[str]) -> dict[str, float]:
     return _fetch_field(tickers, "previousClose")
 
 
+def fetch_intraday_context(tickers: list[str]) -> dict[str, dict]:
+    """Batch-fetch intraday price context from fast_info. Returns {ticker: {open, day_high, day_low, year_high, year_low, last_volume, avg_volume_10d}}."""
+    if not tickers:
+        return {}
+    data = yf.Tickers(" ".join(tickers))
+    result: dict[str, dict] = {}
+    for ticker in tickers:
+        try:
+            fi = data.tickers[ticker].fast_info
+            result[ticker] = {
+                "open": float(fi["open"]),
+                "day_high": float(fi["day_high"]),
+                "day_low": float(fi["day_low"]),
+                "year_high": float(fi["year_high"]),
+                "year_low": float(fi["year_low"]),
+                "last_volume": int(fi["last_volume"]),
+                "avg_volume_10d": int(fi["ten_day_average_volume"]),
+            }
+        except (KeyError, TypeError, ValueError):
+            pass
+    return result
+
+
 def compute_summary(csv_path: str) -> dict[str, Any]:
     rows = _load_csv(csv_path)
     market_rows = [r for r in rows if not r["ticker"].startswith("CASH_")]
@@ -45,6 +68,7 @@ def compute_summary(csv_path: str) -> dict[str, Any]:
     market_tickers = [r["ticker"] for r in market_rows]
     prices = _fetch_prices(market_tickers + ["TWD=X"])
     fx_rate: float | None = prices.pop("TWD=X", None)
+    intraday = fetch_intraday_context(market_tickers)
 
     positions = []
     errors = []
@@ -89,6 +113,25 @@ def compute_summary(csv_path: str) -> dict[str, Any]:
         gain_loss = current_value - cost_value
         gain_loss_pct = (gain_loss / cost_value * 100) if cost_value else 0.0
 
+        ctx = intraday.get(ticker, {})
+        open_price = ctx.get("open")
+        year_high = ctx.get("year_high")
+        year_low = ctx.get("year_low")
+        avg_vol = ctx.get("avg_volume_10d")
+        last_vol = ctx.get("last_volume")
+
+        from_open_pct: float | None = None
+        if open_price and open_price > 0:
+            from_open_pct = round((current_price - open_price) / open_price * 100, 2)
+
+        at_52w_high: bool | None = None
+        if year_high and year_high > 0:
+            at_52w_high = current_price >= year_high * 0.98
+
+        volume_ratio: float | None = None
+        if avg_vol and avg_vol > 0 and last_vol is not None:
+            volume_ratio = round(last_vol / avg_vol, 2)
+
         positions.append(
             {
                 "ticker": ticker,
@@ -97,6 +140,14 @@ def compute_summary(csv_path: str) -> dict[str, Any]:
                 "shares": shares,
                 "cost_price": cost_price,
                 "current_price": current_price,
+                "open": open_price,
+                "day_high": ctx.get("day_high"),
+                "day_low": ctx.get("day_low"),
+                "from_open_pct": from_open_pct,
+                "year_high": year_high,
+                "year_low": year_low,
+                "at_52w_high": at_52w_high,
+                "volume_ratio": volume_ratio,
                 "currency": currency,
                 "cost_value": round(cost_value, 2),
                 "current_value": round(current_value, 2),

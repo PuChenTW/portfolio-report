@@ -5,7 +5,7 @@ from typing import cast
 from pydantic import BaseModel
 
 from portfolio.report import USHolding, TWHolding, CryptoHolding
-from researcher.pipeline.data import TZ_TAIPEI, _fmt_today
+from researcher.pipeline.data import TZ_TAIPEI, fmt_today
 from researcher.services.agent_runner import make_analysis_agent, make_search_agent, run_agent_sync
 
 _CLOSE_PROMPT_TEMPLATE = """\
@@ -152,7 +152,7 @@ def search_news(
     summary: dict | None = None,
 ) -> dict:
     now = datetime.now(TZ_TAIPEI)
-    today_str = _fmt_today()
+    today_str = fmt_today()
     date_str = now.strftime("%Y-%m-%d")
 
     if summary is not None:
@@ -205,7 +205,7 @@ def generate_close_insight(
 ) -> dict:
     """Generate closing insight by cross-referencing today's research log with close prices."""
     now = datetime.now(TZ_TAIPEI)
-    today_str = _fmt_today()
+    today_str = fmt_today()
     date_str = now.strftime("%Y-%m-%d")
 
     if summary is not None:

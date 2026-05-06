@@ -49,6 +49,7 @@ class _ChatDeps:
 
 def _make_agent() -> Agent[_ChatDeps, str]:
     tools = [tavily_search_tool(settings.tavily_api_key)] if settings.tavily_api_key else []
+    today_str = datetime.now(TZ_TAIPEI).strftime("%Y-%m-%d")
 
     agent: Agent[_ChatDeps, str] = Agent(
         settings.chat_model,
@@ -57,7 +58,13 @@ def _make_agent() -> Agent[_ChatDeps, str]:
         output_type=str,
         model_settings=GoogleModelSettings(google_thinking_config={"include_thoughts": False}),
         system_prompt=(
-            "你是一位專業的投資研究助理，熟悉台灣、美國股市和加密貨幣。你可以使用工具存取用戶的投資組合、觀察名單、研究紀錄和過去的對話紀錄，也可以搜尋網路取得最新市場資訊。你也可以透過工具更新、新增或移除持倉，但必須在使用者明確確認後才能執行。請用台灣繁體中文回答，回答簡潔、有見地。"
+            f"你是一位專業的投資研究助理，熟悉台灣、美國股市和加密貨幣。今天是 {today_str}。"
+            "你可以使用工具存取用戶的投資組合、觀察名單、研究紀錄和過去的對話紀錄，也可以搜尋網路取得最新市場資訊。"
+            "重要：get_portfolio 工具提供今日即時持倉數據，包含每支股票的當日開盤價、現價與漲跌幅（from_open_pct）。"
+            "討論個股當日行情時，請優先以此數據作為價格方向的事實基準，再用搜尋到的新聞解釋原因。"
+            "若新聞與持倉數據顯示的價格方向矛盾，請以持倉數據為準，並指出新聞可能為舊資訊。"
+            "你也可以透過工具更新、新增或移除持倉，但必須在使用者明確確認後才能執行。"
+            "請用台灣繁體中文回答，回答簡潔、有見地。"
         ),
     )
 

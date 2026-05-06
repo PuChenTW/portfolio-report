@@ -7,22 +7,22 @@ from researcher.config import settings
 WEEKDAY_ZH = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
 
 
-def _fmt_today() -> str:
+def fmt_today() -> str:
     now = datetime.now(TZ_TAIPEI)
     return f"{now.year} 年 {now.month:02d} 月 {now.day:02d} 日（{WEEKDAY_ZH[now.weekday()]}）"
 
 
-def _fmt_change(pct: float) -> tuple[str, bool]:
+def fmt_change(pct: float) -> tuple[str, bool]:
     up = pct >= 0
     arrow = "▲ +" if up else "▼ "
     return f"{arrow}{abs(pct):.2f}% 今日", up
 
 
-def _fmt_usd(value: float) -> str:
+def fmt_usd(value: float) -> str:
     return f"${value:,.0f}"
 
 
-def _fmt_twd(value: float) -> str:
+def fmt_twd(value: float) -> str:
     return f"NT${value:,.0f}"
 
 
@@ -57,7 +57,7 @@ def build_holdings(
                     TWHolding(
                         ticker=ticker,
                         name=p["name"],
-                        price=_fmt_twd(p["current_value"]),
+                        price=fmt_twd(p["current_value"]),
                         day_change="—",
                         day_change_up=False,
                         note="現金",
@@ -70,7 +70,7 @@ def build_holdings(
                         ticker=ticker,
                         name=p["name"],
                         category="CASH",
-                        price=_fmt_usd(p["current_value"]),
+                        price=fmt_usd(p["current_value"]),
                         day_change="—",
                         day_change_up=False,
                         gain_loss="—",
@@ -83,7 +83,7 @@ def build_holdings(
         prev = prev_closes.get(ticker)
         if prev and prev > 0:
             day_pct = (current - prev) / prev * 100
-            day_change, day_change_up = _fmt_change(day_pct)
+            day_change, day_change_up = fmt_change(day_pct)
         else:
             day_change, day_change_up = "暫無數據", False
 
@@ -155,10 +155,10 @@ def build_totals(data: dict) -> dict:
     crypto_gl_pct = (crypto_value - crypto_cost) / crypto_cost * 100 if crypto_cost else 0.0
 
     return {
-        "tw_total": _fmt_twd(twd.get("total_value", 0.0)),
-        "tw_change": _fmt_change(twd.get("total_gain_loss_pct", 0.0)),
-        "us_total": _fmt_usd(us_value),
-        "us_change": _fmt_change(us_gl_pct),
-        "crypto_total": _fmt_usd(crypto_value),
-        "crypto_change": _fmt_change(crypto_gl_pct),
+        "tw_total": fmt_twd(twd.get("total_value", 0.0)),
+        "tw_change": fmt_change(twd.get("total_gain_loss_pct", 0.0)),
+        "us_total": fmt_usd(us_value),
+        "us_change": fmt_change(us_gl_pct),
+        "crypto_total": fmt_usd(crypto_value),
+        "crypto_change": fmt_change(crypto_gl_pct),
     }

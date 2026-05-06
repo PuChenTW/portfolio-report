@@ -3,7 +3,7 @@ from datetime import datetime
 
 from portfolio.report import format_telegram_messages
 
-from researcher.pipeline.data import TZ_TAIPEI, _fmt_today
+from researcher.pipeline.data import TZ_TAIPEI, fmt_today
 from researcher.pipeline.news import _NEWS_DEFAULTS, generate_close_insight, search_news
 from researcher.services.workflow_deps import WorkflowDeps
 
@@ -22,6 +22,7 @@ def run(market: str, deps: WorkflowDeps) -> None:
         print(f"[warn] Price fetch errors: {errors}", file=sys.stderr)
 
     from datetime import date as _date
+
     research_path = deps.memory.resolve("RESEARCH-LOG.md")
     research_entries = deps.memory.last_n_entries(research_path, 6)
     transaction_log = deps.transaction_log.entries_since(_date.today())
@@ -53,7 +54,7 @@ def run(market: str, deps: WorkflowDeps) -> None:
     us_change_str, us_change_up = totals["us_change"]
     crypto_change_str, crypto_change_up = totals["crypto_change"]
 
-    today = _fmt_today()
+    today = fmt_today()
     messages = format_telegram_messages(
         today_date=today,
         tw_total=totals["tw_total"],
