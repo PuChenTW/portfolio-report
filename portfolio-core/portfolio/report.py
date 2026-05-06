@@ -114,6 +114,20 @@ def _render_macro_rows(items: list[str]) -> str:
     return "".join(rows)
 
 
+def _render_news_links(urls: list[str]) -> str:
+    if not urls:
+        return ""
+    rows = []
+    for i, url in enumerate(urls):
+        rows.append(
+            "<tr>"
+            f'<td width="24" valign="top" style="padding-top:5px;padding-right:10px;color:#3182ce;font-size:12px;font-weight:700;">{i + 1}.</td>'
+            f'<td style="font-size:13px;padding-bottom:8px;"><a href="{url}" style="color:#63b3ed;text-decoration:none;word-break:break-all;">{url}</a></td>'
+            "</tr>"
+        )
+    return "".join(rows)
+
+
 def _render_tip_rows(items: list[str]) -> str:
     rows = []
     for i, text in enumerate(items):
@@ -238,13 +252,15 @@ DAILY_REPORT_TEMPLATE = """\
       </table>
     </div>
 
-    <div style="padding:24px 32px;">
+    <div style="padding:24px 32px;border-bottom:1px solid #1e2535;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
         <span style="font-size:18px;">💡</span>
         <span style="font-size:14px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:1px;">今日重點提示</span>
       </div>
       <table width="100%" cellpadding="0" cellspacing="0" border="0">[TIP_ROWS]</table>
     </div>
+
+    [NEWS_LINKS_SECTION]
 
   </div>
 
@@ -307,6 +323,7 @@ def format_telegram_messages(
     crypto_holdings: list[CryptoHolding],
     macro_rows: list[str],
     tip_rows: list[str],
+    news_links: list[str] = [],
 ) -> list[str]:
     """Format daily report as 2 Telegram MarkdownV2 messages for quick mobile glance."""
     # Message 1: Snapshot — totals + macro
@@ -339,6 +356,12 @@ def format_telegram_messages(
     msg2_lines.append("💡 *今日行動*")
     for i, tip in enumerate(tip_rows, 1):
         msg2_lines.append(f"{i}\\. {_esc(tip)}")
+
+    if news_links:
+        msg2_lines.append("")
+        msg2_lines.append("📰 *新聞來源*")
+        msg2_lines.append("  ".join(f"[{i + 1}]({url})" for i, url in enumerate(news_links)))
+
     msg2_lines.append("")
     msg2_lines.append("_⚠️ 僅供參考，不構成投資建議_")
 
@@ -362,11 +385,25 @@ def generate_daily_report_html(
     crypto_holdings: list[CryptoHolding],
     macro_rows: list[str],
     tip_rows: list[str],
+    news_links: list[str] = [],
 ) -> str:
     """Generate the daily investment summary HTML email from pre-aggregated data."""
     us_rows = "".join(_render_us_row(h, i == len(us_holdings) - 1) for i, h in enumerate(us_holdings))
     tw_rows = "".join(_render_tw_row(h, i == len(tw_holdings) - 1) for i, h in enumerate(tw_holdings))
     crypto_rows = "".join(_render_crypto_row(h, i == len(crypto_holdings) - 1) for i, h in enumerate(crypto_holdings))
+
+    rendered_links = _render_news_links(news_links)
+    news_links_section = (
+        '<div style="padding:24px 32px;">'
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">'
+        '<span style="font-size:18px;">📰</span>'
+        '<span style="font-size:14px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:1px;">重要新聞來源</span>'
+        "</div>"
+        f'<table width="100%" cellpadding="0" cellspacing="0" border="0">{rendered_links}</table>'
+        "</div>"
+        if rendered_links
+        else ""
+    )
 
     return (
         DAILY_REPORT_TEMPLATE.replace("[TODAY_DATE]", today_date)
@@ -385,4 +422,5 @@ def generate_daily_report_html(
         .replace("[TW_TABLE_ROWS]", tw_rows)
         .replace("[CRYPTO_TABLE_ROWS]", crypto_rows)
         .replace("[TIP_ROWS]", _render_tip_rows(tip_rows))
+        .replace("[NEWS_LINKS_SECTION]", news_links_section)
     )

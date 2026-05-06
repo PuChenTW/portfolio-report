@@ -16,6 +16,7 @@ class _PremarketSummary(BaseModel):
     catalyst_rows: list[str]
     alert_tickers: list[str]
     action_rows: list[str]
+    news_links: list[str] = []
 
 
 _PREMARKET_PROMPT_TW = """\
@@ -41,6 +42,7 @@ _PREMARKET_PROMPT_TW = """\
 - catalyst_rows：各持倉/觀察標的今日催化劑（每條含 ticker）
 - alert_tickers：今日需特別注意的標的（有重大消息或盤前大跌）
 - action_rows：2-3 條今日操作建議
+- news_links：3-5 條今日最重要新聞的完整 URL（必須是真實可存取的網址，來自搜尋結果）
 
 語言：台灣繁體中文。"""
 
@@ -67,6 +69,7 @@ _PREMARKET_PROMPT_US = """\
 - catalyst_rows：各持倉/觀察標的今日催化劑（每條含 ticker）
 - alert_tickers：今日需特別注意的標的
 - action_rows：2-3 條今日操作建議
+- news_links：3-5 條今日最重要新聞的完整 URL（必須是真實可存取的網址，來自搜尋結果）
 
 語言：台灣繁體中文。"""
 
@@ -122,9 +125,18 @@ def run(market: str, deps: WorkflowDeps) -> None:
     if result_data.action_rows:
         log_lines.append("### Actions")
         log_lines += [f"{i + 1}. {row}" for i, row in enumerate(result_data.action_rows)]
+    if result_data.news_links:
+        log_lines.append("### News Links")
+        log_lines += [f"- {url}" for url in result_data.news_links]
     deps.memory.append_entry(deps.memory.resolve("RESEARCH-LOG.md"), "\n".join(log_lines))
 
     if result_data.alert_tickers:
         alert_msg = f"⚠️ *盤前預警 {market}*\n" + "\n".join(f"• {t}" for t in result_data.alert_tickers)
         action_msg = "\n".join(f"{i + 1}\\. {row}" for i, row in enumerate(result_data.action_rows))
-        deps.notifier.send_messages([alert_msg + "\n\n" + action_msg])
+        msg = alert_msg + "\n\n" + action_msg
+        if result_data.news_links:
+            links_msg = "📰 *新聞來源*\n" + "  ".join(
+                f"[{i + 1}]({url})" for i, url in enumerate(result_data.news_links)
+            )
+            msg += "\n\n" + links_msg
+        deps.notifier.send_messages([msg])

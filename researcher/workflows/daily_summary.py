@@ -72,6 +72,7 @@ def run(market: str, deps: WorkflowDeps) -> None:
         crypto_holdings=crypto_holdings,
         macro_rows=news.get("macro_rows", _NEWS_DEFAULTS["macro_rows"]),
         tip_rows=news.get("tip_rows", _NEWS_DEFAULTS["tip_rows"]),
+        news_links=news.get("news_links", []),
     )
 
     deps.notifier.send_messages(messages)

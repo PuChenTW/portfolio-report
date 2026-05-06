@@ -28,6 +28,7 @@ _CLOSE_PROMPT_TEMPLATE = """\
 - tip_rows：4-6 條具體操作建議，需包含：
   * 今日哪些操作建議執行了、效果如何
   * 根據收盤結果，明日或近期需注意的調整
+- news_links：3-5 條今日最重要新聞的完整 URL（必須是真實可存取的網址，來自研究紀錄或搜尋結果）
 
 語言：台灣繁體中文，禁止簡體中文或中國用語。"""
 
@@ -36,6 +37,7 @@ _NEWS_DEFAULTS = {
     "us_event": "今日美股重點事件暫無法取得。",
     "tw_notes": {},
     "tip_rows": ["請至 Gmail 或財經網站查看今日市場動態。"],
+    "news_links": [],
 }
 
 _NEWS_PROMPT_TEMPLATE = """\
@@ -76,6 +78,7 @@ _NEWS_PROMPT_TEMPLATE = """\
   * 再平衡建議：若某類別或幣別配置比例明顯偏高或偏低，說明是否需調整
   * 集中度警示：若單一部位 pct_global 超過 15%，點出集中風險
   * 結合新聞的個股操作建議：依今日消息與持倉比重，說明持有、加碼或減碼的理由
+- news_links：3-5 條今日最重要新聞的完整 URL（必須是真實可存取的網址，來自搜尋結果）
 
 語言：台灣繁體中文，禁止簡體中文或中國用語。"""
 
@@ -85,6 +88,7 @@ class _NewsSummary(BaseModel):
     us_event: str
     tw_notes: dict[str, str]
     tip_rows: list[str]
+    news_links: list[str] = []
 
 
 def _build_portfolio_context(
